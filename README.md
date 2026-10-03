@@ -20,6 +20,7 @@ or have the dot run for them.
 | `web/` | Library, search, editor, recordings, runs, admin (React + TS) | Builds clean; smoke test passes against the real API |
 | `mac/` | The dot: recorder, upload queue, search, replay (Swift) | 45 core tests pass; app code needs its first compile on a Mac |
 | `infra/` | Docker image + compose (Postgres/pgvector, MinIO, API, workers) | Config validated; not run here (no Docker daemon) |
+| `docs/ARCHITECTURE.md` | Diagrams of every component and flow | |
 | `docs/CONTRACT.md` | The API contract all three share | |
 
 No Databricks anywhere. Cloud-agnostic: anything that runs containers, Postgres and S3-compatible storage.
