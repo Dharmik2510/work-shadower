@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Privacy Preferences Policy Control (PPPC) profile for Work Shadower "Dot".
+  Deploy with Jamf / Intune / Kandji to managed Macs only (PPPC payloads must come from MDM).
+
+  BEFORE DEPLOYING replace:
+    - com.workshadower.dot  → your bundle id (BUNDLE_ID in build.sh)
+    - CodeRequirement        → output of: codesign -dr - Dot.app   (must be Developer ID signed)
+    - TEAMID / UUIDs         → your values (uuidgen)
+
+  Accessibility can be pre-allowed. Screen Recording (ScreenCapture) and Input Monitoring
+  (ListenEvent) can only be set to "AllowStandardUserToSetSystemService" by MDM — the user
+  still clicks "Allow" once, but no admin password is needed.
+-->
+<plist version="1.0">
+<dict>
+  <key>PayloadType</key><string>Configuration</string>
+  <key>PayloadVersion</key><integer>1</integer>
+  <key>PayloadIdentifier</key><string>com.workshadower.dot.pppc</string>
+  <key>PayloadUUID</key><string>6E3B2B0A-6F1E-4C7A-9C55-0D1F6A2B9A01</string>
+  <key>PayloadDisplayName</key><string>Work Shadower – Privacy Permissions</string>
+  <key>PayloadScope</key><string>System</string>
+  <key>PayloadContent</key>
+  <array>
+    <dict>
+      <key>PayloadType</key><string>com.apple.TCC.configuration-profile-policy</string>
+      <key>PayloadVersion</key><integer>1</integer>
+      <key>PayloadIdentifier</key><string>com.workshadower.dot.pppc.tcc</string>
+      <key>PayloadUUID</key><string>6E3B2B0A-6F1E-4C7A-9C55-0D1F6A2B9A02</string>
+      <key>PayloadDisplayName</key><string>Work Shadower TCC</string>
+      <key>Services</key>
+      <dict>
+        <key>Accessibility</key>
+        <array>
+          <dict>
+            <key>Identifier</key><string>com.workshadower.dot</string>
+            <key>IdentifierType</key><string>bundleID</string>
+            <key>CodeRequirement</key><string>identifier "com.workshadower.dot" and anchor apple generic and certificate leaf[subject.OU] = "TEAMID"</string>
+            <key>Authorization</key><string>Allow</string>
+            <key>Comment</key><string>Read control names while recording; press them during replay.</string>
+          </dict>
+        </array>
+        <key>ListenEvent</key>
+        <array>
+          <dict>
+            <key>Identifier</key><string>com.workshadower.dot</string>
+            <key>IdentifierType</key><string>bundleID</string>
+            <key>CodeRequirement</key><string>identifier "com.workshadower.dot" and anchor apple generic and certificate leaf[subject.OU] = "TEAMID"</string>
+            <key>Authorization</key><string>AllowStandardUserToSetSystemService</string>
+          </dict>
+        </array>
+        <key>ScreenCapture</key>
+        <array>
+          <dict>
+            <key>Identifier</key><string>com.workshadower.dot</string>
+            <key>IdentifierType</key><string>bundleID</string>
+            <key>CodeRequirement</key><string>identifier "com.workshadower.dot" and anchor apple generic and certificate leaf[subject.OU] = "TEAMID"</string>
+            <key>Authorization</key><string>AllowStandardUserToSetSystemService</string>
+          </dict>
+        </array>
+        <key>AppleEvents</key>
+        <array>
+          <dict>
+            <key>Identifier</key><string>com.workshadower.dot</string>
+            <key>IdentifierType</key><string>bundleID</string>
+            <key>CodeRequirement</key><string>identifier "com.workshadower.dot" and anchor apple generic and certificate leaf[subject.OU] = "TEAMID"</string>
+            <key>AEReceiverIdentifier</key><string>com.apple.systemevents</string>
+            <key>AEReceiverIdentifierType</key><string>bundleID</string>
+            <key>AEReceiverCodeRequirement</key><string>identifier "com.apple.systemevents" and anchor apple</string>
+            <key>Authorization</key><string>Allow</string>
+          </dict>
+        </array>
+      </dict>
+    </dict>
+    <dict>
+      <!-- Pre-configure the server so users skip that step. -->
+      <key>PayloadType</key><string>com.workshadower.dot</string>
+      <key>PayloadVersion</key><integer>1</integer>
+      <key>PayloadIdentifier</key><string>com.workshadower.dot.settings</string>
+      <key>PayloadUUID</key><string>6E3B2B0A-6F1E-4C7A-9C55-0D1F6A2B9A03</string>
+      <key>serverURL</key><string>https://shadow.yourcompany.com</string>
+    </dict>
+  </array>
+</dict>
+</plist>

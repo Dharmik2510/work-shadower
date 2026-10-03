@@ -1,0 +1,118 @@
+/* Work Shadower design tokens.
+   Cool "slate paper" base, deep ink, and a single indigo taken from the dot itself.
+   Amber is reserved for irreversible steps; green/red only for outcomes. */
+:root {
+  --font: "Hanken Grotesk Variable", "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --paper: #f2f3f7;
+  --surface: #ffffff;
+  --surface-2: #f7f8fb;
+  --sunken: #eaecf2;
+  --ink: #171a2c;
+  --ink-2: #3f4460;
+  --muted: #646a85;
+  --line: #e0e2eb;
+  --line-strong: #c9ccda;
+
+  --indigo: #4a3fe0;
+  --indigo-ink: #3b30c8;
+  --indigo-soft: #ebeafe;
+  --indigo-line: #c9c5fb;
+  --on-indigo: #ffffff;
+
+  --orb-hi: #9a93ff;
+  --orb-mid: #5246e6;
+  --orb-lo: #2a2091;
+
+  --good: #15744c;
+  --good-soft: #e1f3ea;
+  --warn: #8f5200;
+  --warn-soft: #fff1d8;
+  --warn-line: #f1c77d;
+  --bad: #b2321f;
+  --bad-soft: #fce8e4;
+
+  --shadow-1: 0 1px 2px rgba(23, 26, 44, 0.06);
+  --shadow-pop: 0 12px 32px -8px rgba(23, 26, 44, 0.22), 0 2px 6px rgba(23, 26, 44, 0.08);
+  --focus: 0 0 0 3px color-mix(in srgb, var(--indigo) 35%, transparent);
+
+  --r-xs: 4px;
+  --r-s: 7px;
+  --r-m: 11px;
+  --r-l: 18px;
+  --r-pill: 999px;
+
+  /* type scale (≈ 1.2 minor third on a 16px base) */
+  --t-xs: 0.75rem;
+  --t-s: 0.875rem;
+  --t-m: 1rem;
+  --t-l: 1.2rem;
+  --t-xl: 1.44rem;
+  --t-2xl: 1.875rem;
+  --t-3xl: 2.6rem;
+
+  --page-max: 1120px;
+  --gutter: 32px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10111a;
+    --surface: #181a26;
+    --surface-2: #1d1f2d;
+    --sunken: #0c0d14;
+    --ink: #e9eaf4;
+    --ink-2: #c3c6d9;
+    --muted: #9599b3;
+    --line: #2a2d40;
+    --line-strong: #3a3e56;
+    --indigo: #8f89ff;
+    --indigo-ink: #aca7ff;
+    --indigo-soft: #25234a;
+    --indigo-line: #45418a;
+    --on-indigo: #120f3a;
+    --orb-hi: #b0aaff;
+    --orb-mid: #6157f0;
+    --orb-lo: #2f259e;
+    --good: #5fd19d;
+    --good-soft: #13301f;
+    --warn: #f2b65a;
+    --warn-soft: #33250c;
+    --warn-line: #6b4d17;
+    --bad: #ff8a75;
+    --bad-soft: #3a1712;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10111a;
+  --surface: #181a26;
+  --surface-2: #1d1f2d;
+  --sunken: #0c0d14;
+  --ink: #e9eaf4;
+  --ink-2: #c3c6d9;
+  --muted: #9599b3;
+  --line: #2a2d40;
+  --line-strong: #3a3e56;
+  --indigo: #8f89ff;
+  --indigo-ink: #aca7ff;
+  --indigo-soft: #25234a;
+  --indigo-line: #45418a;
+  --on-indigo: #120f3a;
+  --orb-hi: #b0aaff;
+  --orb-mid: #6157f0;
+  --orb-lo: #2f259e;
+  --good: #5fd19d;
+  --good-soft: #13301f;
+  --warn: #f2b65a;
+  --warn-soft: #33250c;
+  --warn-line: #6b4d17;
+  --bad: #ff8a75;
+  --bad-soft: #3a1712;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}

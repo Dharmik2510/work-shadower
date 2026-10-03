@@ -1,0 +1,73 @@
+# Full stack on one machine:  cd infra && cp .env.example .env && docker compose up -d --build
+# Then open http://localhost:8000  (seed demo data: docker compose run --rm api python -m app.seed)
+name: workshadower
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: workshadower
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workshadower}
+      POSTGRES_DB: workshadower
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workshadower"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-workshadower}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-workshadower-secret}
+    volumes: [objects:/data]
+    ports: ["9000:9000", "9001:9001"]   # 9000 must be reachable by Macs (presigned uploads)
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on: { minio: { condition: service_healthy } }
+    entrypoint: >
+      sh -c "mc alias set local http://minio:9000 $${S3_ACCESS_KEY:-workshadower} $${S3_SECRET_KEY:-workshadower-secret} &&
+             mc mb --ignore-existing local/workshadower-assets"
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-workshadower}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-workshadower-secret}
+
+  api:
+    build: { context: .., dockerfile: infra/Dockerfile }
+    image: workshadower:latest
+    env_file: .env
+    environment: &backend_env
+      DATABASE_URL: postgresql://workshadower:${POSTGRES_PASSWORD:-workshadower}@db:5432/workshadower
+      STORAGE_DRIVER: s3
+      S3_BUCKET: workshadower-assets
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://localhost:9000}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-workshadower}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-workshadower-secret}
+    depends_on:
+      db: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    ports: ["8000:8000"]
+    restart: unless-stopped
+
+  worker:
+    image: workshadower:latest
+    command: ["python", "-m", "app.worker"]
+    env_file: .env
+    environment: *backend_env
+    depends_on:
+      api: { condition: service_started }
+    deploy: { replicas: 2 }   # scale freely: jobs are claimed with SKIP LOCKED
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+  objects:
