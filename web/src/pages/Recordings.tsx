@@ -50,10 +50,16 @@ export default function Recordings() {
             {items.map((r) => (
               <li key={r.id} className={`rec rec--${r.status}`}>
                 <div className="rec__main">
-                  <h3>{r.title_hint || "Untitled recording"}</h3>
+                  <h3>{r.intent || r.title_hint || "Untitled recording"}</h3>
                   <p className="rec__meta">
                     <span title={dateTime(r.created_at)}>Recorded {relTime(r.created_at)}</span>
                     <span>{r.event_count.toLocaleString()} actions</span>
+                    {r.filter && r.filter.counts.drop > 0 && (
+                      <span>
+                        {r.filter.counts.drop} left out as unrelated
+                      </span>
+                    )}
+                    {(r.skill_ids?.length ?? 0) > 1 && <span>{r.skill_ids!.length} tasks found</span>}
                   </p>
                   {r.status === "failed" && r.error && (
                     <p className="rec__err">
@@ -63,7 +69,15 @@ export default function Recordings() {
                 </div>
                 <RecordingStatusPill status={r.status} />
                 <div className="rec__act">
-                  {r.status === "ready" && r.skill_id ? (
+                  {r.status === "ready" && (r.skill_ids?.length ?? 0) > 1 ? (
+                    <span className="rec__drafts">
+                      {r.skill_ids!.map((sid, k) => (
+                        <Link key={sid} className="btn btn--quiet btn--sm" to={`/skills/${sid}/edit`}>
+                          Review draft {k + 1}
+                        </Link>
+                      ))}
+                    </span>
+                  ) : r.status === "ready" && r.skill_id ? (
                     <Link className="btn btn--quiet btn--sm" to={`/skills/${r.skill_id}/edit`}>
                       Review draft
                     </Link>

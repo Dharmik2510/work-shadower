@@ -149,9 +149,13 @@ public struct SkillStep: Codable, Equatable {
     public var expect: StepExpect?
     public var screenshotSHA256: String?
     public var irreversible: Bool
+    /// Left out of the skill by the relevance filter or a reviewer. Published skills never contain
+    /// excluded steps, but drafts can; replay always skips them.
+    public var excluded: Bool
 
     public init(index: Int, title: String, instruction: String, app: String? = nil, action: StepAction? = nil,
-                expect: StepExpect? = nil, screenshotSHA256: String? = nil, irreversible: Bool = false) {
+                expect: StepExpect? = nil, screenshotSHA256: String? = nil, irreversible: Bool = false,
+                excluded: Bool = false) {
         self.index = index
         self.title = title
         self.instruction = instruction
@@ -160,10 +164,11 @@ public struct SkillStep: Codable, Equatable {
         self.expect = expect
         self.screenshotSHA256 = screenshotSHA256
         self.irreversible = irreversible
+        self.excluded = excluded
     }
 
     enum CodingKeys: String, CodingKey {
-        case index, title, instruction, app, action, expect, irreversible
+        case index, title, instruction, app, action, expect, irreversible, excluded
         case screenshotSHA256 = "screenshot_sha256"
     }
 
@@ -177,6 +182,7 @@ public struct SkillStep: Codable, Equatable {
         expect = try? c.decodeIfPresent(StepExpect.self, forKey: .expect)
         screenshotSHA256 = try? c.decodeIfPresent(String.self, forKey: .screenshotSHA256)
         irreversible = (try? c.decodeIfPresent(Bool.self, forKey: .irreversible)) ?? false
+        excluded = (try? c.decodeIfPresent(Bool.self, forKey: .excluded)) ?? false
     }
 }
 
@@ -188,6 +194,9 @@ public struct SkillContent: Codable, Equatable {
     public var inputs: [SkillInput]
     public var steps: [SkillStep]
     public var tags: [String]
+
+    /// The steps replay performs: excluded steps are skipped.
+    public var runnableSteps: [SkillStep] { return steps.filter { !$0.excluded } }
 
     public init(title: String, goal: String = "", apps: [String] = [], prerequisites: [String] = [],
                 inputs: [SkillInput] = [], steps: [SkillStep] = [], tags: [String] = []) {

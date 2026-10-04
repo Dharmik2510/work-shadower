@@ -10,7 +10,7 @@ from ..errors import ApiError, not_found
 from ..flags import get_flags
 from ..jobs import enqueue
 from ..models import RecordingCreate
-from ..redact import redact_events
+from ..redact import redact_events, redact_text
 from ..skills import clamp_limit, decode_cursor, encode_cursor, iso, require_uuid
 
 router = APIRouter()
@@ -24,10 +24,20 @@ def _view(r: dict) -> dict:
         "status": r["status"],
         "error": r["error"],
         "skill_id": str(r["skill_id"]) if r["skill_id"] else None,
+        "skill_ids": [str(x) for x in (r.get("skill_ids") or [])] or ([str(r["skill_id"])] if r["skill_id"] else []),
         "event_count": r["event_count"],
         "title_hint": r["title_hint"],
+        "intent": r.get("intent"),
+        "filter": _public_summary(r.get("filter_summary")),
         "created_at": iso(r["created_at"]),
     }
+
+
+def _public_summary(s: dict | None) -> dict | None:
+    if not s:
+        return None
+    return {k: s.get(k) for k in ("source", "counts", "segments", "task_type")}
+
 
 
 def require_idempotency_key(key: str | None) -> str:
@@ -36,6 +46,11 @@ def require_idempotency_key(key: str | None) -> str:
     if len(key) > 200:
         raise ApiError(400, "invalid_idempotency_key", "Idempotency-Key is too long")
     return key.strip()
+
+
+def _clean_intent(intent: str | None) -> str | None:
+    t = " ".join((intent or "").split())
+    return redact_text(t) if t else None
 
 
 @router.post("/recordings", status_code=202)
@@ -62,12 +77,12 @@ def create_recording(
     events = redact_events([e.model_dump(mode="json", exclude_none=False) for e in body.events])
     shas = sorted({e["screenshot_sha256"] for e in events if e.get("screenshot_sha256")})
     row = conn.execute(
-        """INSERT INTO recordings (user_id, idempotency_key, title_hint, started_at, ended_at, client, events,
-                                   event_count, asset_shas)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """INSERT INTO recordings (user_id, idempotency_key, title_hint, intent, started_at, ended_at, client,
+                                   events, event_count, asset_shas)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (user_id, idempotency_key) DO NOTHING
            RETURNING id::text AS id, status""",
-        (user.id, key, body.title_hint, body.started_at, body.ended_at, Jsonb(body.client.model_dump()),
+        (user.id, key, redact_text(body.title_hint), _clean_intent(body.intent), body.started_at, body.ended_at, Jsonb(body.client.model_dump()),
          Jsonb(events), len(events), shas),
     ).fetchone()
     if row is None:  # lost a race with a concurrent request carrying the same key
@@ -89,7 +104,8 @@ def list_recordings(user: User, conn: Conn, limit: int | None = Query(None), cur
         where += " AND (created_at, id) < (%(c_ts)s::timestamptz, %(c_id)s::uuid)"
         params["c_ts"], params["c_id"] = c
     rows = conn.execute(
-        f"""SELECT id, status, error, skill_id, event_count, title_hint, created_at FROM recordings
+        f"""SELECT id, status, error, skill_id, event_count, title_hint, intent, filter_summary, created_at,
+                   skill_ids FROM recordings
             WHERE {where} ORDER BY created_at DESC, id DESC LIMIT %(lim)s""",
         params,
     ).fetchall()
@@ -101,7 +117,8 @@ def list_recordings(user: User, conn: Conn, limit: int | None = Query(None), cur
 def get_recording(recording_id: str, user: User, conn: Conn):
     require_uuid(recording_id, "recording")
     row = conn.execute(
-        """SELECT id, user_id::text AS user_id, status, error, skill_id, event_count, title_hint, created_at
+        """SELECT id, user_id::text AS user_id, status, error, skill_id, event_count, title_hint, intent,
+                   filter_summary, created_at, skill_ids
            FROM recordings WHERE id = %s""",
         (recording_id,),
     ).fetchone()

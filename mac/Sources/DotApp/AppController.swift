@@ -18,6 +18,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private let hotKey = HotKey()
     private lazy var replayer = Replayer(api: api, settings: settings)
     private let search = SearchPanelController()
+    private let intentPrompt = IntentPromptController()
     private lazy var settingsWindow = SettingsWindowController(model: SettingsModel(settings: settings, api: api))
 
     private var config: ServerConfig = .defaults
@@ -222,6 +223,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// How long a just-saved recording waits for the "What did you just do?" answer before it uploads
+    /// anyway. The recording is already on disk, so quitting during the question loses nothing.
+    private static let intentHold: TimeInterval = 150
+
     private func enqueue(_ result: RecordingResult?) {
         guard let r = result else { return }
         guard !r.events.isEmpty else {
@@ -234,15 +239,46 @@ final class AppController: NSObject, NSApplicationDelegate {
             client: ClientInfo(appVersion: SettingsStore.appVersion, osVersion: SettingsStore.osVersion,
                                deviceID: settings.deviceID),
             events: r.events)
+        let key = UUID().uuidString
+        let ask = settings.askIntent
         do {
             let data = try DotJSON.encoder().encode(payload)
             let assets = r.shots.map { QueuedAsset(sha256: $0.sha256, path: $0.path, contentType: "image/jpeg", bytes: $0.bytes) }
-            try queue.enqueueRecording(idempotencyKey: UUID().uuidString, payload: data, assets: assets)
-            uploader?.kick()
+            try queue.enqueueRecording(idempotencyKey: key, payload: data, assets: assets,
+                                       holdUntil: ask ? Date().addingTimeInterval(Self.intentHold) : nil)
         } catch {
             Log.upload.error("enqueue failed: \(String(describing: error), privacy: .public)")
             flash("Couldn't save the recording locally.")
+            return
         }
+        guard ask else {
+            uploader?.kick()
+            return
+        }
+        var apps: [String] = []
+        for e in r.events {
+            if let n = e.app?.name, !apps.contains(n) { apps.append(n) }
+        }
+        intentPrompt.ask(near: dotPanel.frame, apps: apps, timeout: Self.intentHold - 30) { [weak self] intent in
+            self?.attachIntent(intent, to: key)
+        }
+    }
+
+    /// Adds the answer to the queued recording (if it hasn't started uploading) and releases it.
+    private func attachIntent(_ intent: String?, to key: String) {
+        guard let queue = queue else { return }
+        do {
+            if let intent = intent, let data = try queue.payload(idempotencyKey: key) {
+                var p = try DotJSON.decoder().decode(RecordingPayload.self, from: data)
+                p.intent = intent
+                try queue.updatePayload(idempotencyKey: key, payload: try DotJSON.encoder().encode(p))
+            }
+            try queue.release(idempotencyKey: key)
+        } catch {
+            // The recording is still queued and uploads when its hold ends; only the note is lost.
+            Log.upload.error("attach intent failed: \(String(describing: error), privacy: .public)")
+        }
+        uploader?.kick()
     }
 
     private func apply(uploadStatus s: UploaderStatus) {

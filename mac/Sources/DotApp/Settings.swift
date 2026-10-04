@@ -69,6 +69,7 @@ final class SettingsStore {
         static let dotOrigin = "dotOrigin"
         static let onboarded = "onboarded"
         static let replayMode = "replayMode"
+        static let askIntent = "askIntentAfterRecording"
     }
 
     var serverURLString: String {
@@ -106,6 +107,12 @@ final class SettingsStore {
     var replayMode: RunMode {
         get { return RunMode(rawValue: d.string(forKey: K.replayMode) ?? "") ?? .guided }
         set { d.set(newValue.rawValue, forKey: K.replayMode) }
+    }
+
+    /// Ask "What did you just do?" when a recording stops (default on).
+    var askIntent: Bool {
+        get { return d.object(forKey: K.askIntent) == nil ? true : d.bool(forKey: K.askIntent) }
+        set { d.set(newValue, forKey: K.askIntent) }
     }
 
     var userName: String {

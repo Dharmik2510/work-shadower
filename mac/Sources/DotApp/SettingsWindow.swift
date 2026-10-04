@@ -24,6 +24,9 @@ final class SettingsModel: ObservableObject {
         didSet { settings.replayMode = replayMode }
     }
     @Published var launchAtLogin = false
+    @Published var askIntent = true {
+        didSet { settings.askIntent = askIntent }
+    }
 
     let settings: SettingsStore
     let api: APIClient
@@ -44,6 +47,7 @@ final class SettingsModel: ObservableObject {
         name = settings.userName
         screenshotPolicy = settings.localScreenshotPolicy
         replayMode = settings.replayMode
+        askIntent = settings.askIntent
         signedInAs = settings.token == nil ? nil : (settings.userEmail.isEmpty ? "signed in" : settings.userEmail)
         launchAtLogin = SMAppService.mainApp.status == .enabled
         refreshPermissions()
@@ -236,6 +240,8 @@ struct SettingsView: View {
                     Text("Auto (stop only when needed)").tag(RunMode.auto)
                 }
                 Toggle("Open at login", isOn: Binding(get: { m.launchAtLogin }, set: { m.setLaunchAtLogin($0) }))
+                Toggle("Ask what I did after each recording", isOn: $m.askIntent)
+                    .help("A one-line answer helps the dot title the skill and leave out steps that weren't part of the task.")
                 Text("Passwords are never recorded. Emails, card, SIN and phone numbers are blurred on this Mac before anything is uploaded.")
                     .font(.system(size: 10)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

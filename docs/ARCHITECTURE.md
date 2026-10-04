@@ -14,6 +14,7 @@ Every component of Work Shadower and how they connect. All diagrams are Mermaid,
 10. [Flow: "Do it for me" replay](#10-flow-do-it-for-me-replay)
 11. [Job queue lifecycle](#11-job-queue-lifecycle)
 12. [Privacy and trust boundaries](#12-privacy-and-trust-boundaries)
+13. [Intent and relevance filtering](#13-intent-and-relevance-filtering)
 
 ---
 
@@ -205,7 +206,7 @@ flowchart TB
             R3["recordings"]
             R4["skills · search · versions · suggest-fix"]
             R5["runs · replay/repair"]
-            R6["admin<br/>flags · usage · jobs"]
+            R6["admin<br/>flags · usage · jobs · filter stats/export"]
             R7["health"]
         end
         SPA["Static web app<br/>(WEB_DIST_DIR, SPA fallback)"]
@@ -226,8 +227,10 @@ flowchart TB
         LOOP["poll loop"]
         H1["generate_skill"]
         H2["embed_skill"]
-        GEN["skillgen.py<br/>cleanup → 1 LLM call → validate<br/>↳ rule-based fallback"]
-        LLM["llm.py<br/>anthropic | openai | none"]
+        H3["poll_llm_batch"]
+        FLT["filtering.py<br/>local rules + Jev → keep · review · drop<br/>retries · circuit breaker · task segments"]
+        GEN["skillgen.py<br/>cleanup → 1 LLM call per task (tool use) → validate<br/>↳ rule-based fallback"]
+        LLM["llm.py<br/>anthropic | openai | none<br/>retries · prompt caching · batches"]
     end
 
     MW --> AUTH --> Routers
@@ -243,8 +246,10 @@ flowchart TB
     R6 --> USE
     R6 --> JOBS
     LOOP --> JOBS
-    JOBS --> H1 --> GEN --> LLM
+    JOBS --> H1 --> FLT
+    H1 --> GEN --> LLM
     JOBS --> H2 --> LLM
+    JOBS --> H3 --> LLM
     H1 --> USE
     H1 --> SK
     SK --> DB
@@ -403,7 +408,10 @@ sequenceDiagram
     end
     U->>D: click again
     D->>D: clean + redact on device
-    D->>Q: save payload + screenshots (survives offline / restart)
+    D->>Q: save payload + screenshots, held (survives offline / restart)
+    D->>U: "What did you just do?" (Skip / Esc / 2 min timeout all continue)
+    U-->>D: one line, e.g. "Added a driver to an auto policy"
+    D->>Q: add redacted intent, release hold
     loop each screenshot
         D->>A: POST /assets/presign {sha256}
         A->>P: known hash?
@@ -414,21 +422,23 @@ sequenceDiagram
             D->>S: PUT bytes (bypasses API)
         end
     end
-    D->>A: POST /recordings + Idempotency-Key
+    D->>A: POST /recordings {intent, events} + Idempotency-Key
     A->>A: check kill switch, redact again
     A->>P: insert recording + job(generate_skill)
     A-->>D: 202 received (retries return same id)
     D->>Q: delete local copy
     W->>P: claim job (FOR UPDATE SKIP LOCKED)
     W->>W: cleanup in code (merge, dedupe, flag irreversible)
+    W->>W: relevance filter: keep / review / drop per event, split into tasks (see §13)
+    W->>P: store filter decisions (a retry reuses them)
     alt LLM on and within budget
-        W->>L: one call: events → skill JSON
-        L-->>W: JSON (validated)
+        W->>L: one call per task: events + intent + filter notes → skill JSON (forced tool call)
+        L-->>W: JSON (validated, safety-checked)
         W->>P: log tokens + cost
     else no LLM / failure / over budget
         W->>W: rule-based writer
     end
-    W->>P: create draft skill (private), recording = ready
+    W->>P: create one draft per task (dropped steps kept as excluded), recording = ready
 ```
 
 ## 9. Flow: review, publish, search
@@ -537,11 +547,13 @@ flowchart LR
 
     subgraph External["External (only if enabled)"]
         LLMX["LLM provider<br/>text only: redacted events,<br/>compact UI tree — no screenshots"]
+        JEVX["TypeSafe Jev (FILTER_PROVIDER=jev)<br/>redacted compact events + intent<br/>no screenshots"]
     end
 
     LOCAL -- "TLS" --> R2
     R2 --> VIS
     R2 -. "optional" .-> LLMX
+    R2 -. "optional" .-> JEVX
     KS -. "polled every 10 min" .-> CAP
 ```
 
@@ -550,5 +562,66 @@ Rules that hold everywhere:
 - Nothing is recorded unless the red ring is showing.
 - Drafts are private until the author publishes.
 - Replay never performs an irreversible step without a human click.
-- Screenshots never go to the LLM.
+- Screenshots never go to the LLM or to Jev.
+- The step filter never deletes anything: left-out steps stay visible in the draft until a human publishes.
 - Logs contain counts and states, never typed text, labels or URLs.
+
+## 13. Intent and relevance filtering
+
+A recording captures everything the person did, including things that are not part of the task: a
+glance at Slack, a misclick they undid, a menu they opened and closed. The pipeline separates the
+task from the noise without ever silently losing a needed step.
+
+```mermaid
+flowchart LR
+    I["Intent<br/>'What did you just do?'"] --> F
+    C["Cleaned events"] --> L["Local rules (free)<br/>undo pairs · open-then-Esc<br/>back-navigation · A→X→A detours<br/>repeats · idle gaps"]
+    C --> J["Jev (optional)<br/>per event, parallel:<br/>needed? · why? · irreversible? · new task?"]
+    L --> F["Combine<br/>Jev p(not needed), strong local<br/>evidence wins, never drop a<br/>committing step or a password entry"]
+    J --> F
+    F --> T{"p ≥ drop cut-off?"}
+    T -- yes --> D["drop: step kept in draft as<br/>excluded (greyed, restorable)"]
+    T -- "no, ≥ flag cut-off" --> R["review: kept, flagged"]
+    T -- no --> K["keep"]
+    F --> S["Task split<br/>p(new task) ≥ 0.85 and ≥3 steps each side<br/>→ one draft per task"]
+```
+
+**Where each signal comes from**
+
+| Signal | Local rules | Jev | LLM writer |
+|---|---|---|---|
+| Not part of the task (p_drop) | strong patterns only (undo 0.92+, detour 0.8–0.93, exploration 0.7) | `needed` (noul) → p_drop = 1 − p | may flag a step → at most **review** |
+| Reason | rule name | `reason` (choice) | free text |
+| Irreversible | keyword rules | `irreversible` (noul ≥ 0.5) | keyword rules re-applied |
+| New task starts | idle gap > 3 min with disjoint apps | `new_task` (noul) | — |
+
+**Safety rules (always)**
+
+- A step that submits/sends/deletes/pays/approves/publishes, or a password entry, is never auto-dropped (capped at review).
+- The LLM alone can never drop a step; it can only flag it for review.
+- Nothing is deleted: dropped steps stay in the draft as `excluded` until publish, so a reviewer can put them back.
+- If every step would be excluded, the LLM draft is rejected and the rule-based draft is used; publish refuses a skill with no included steps.
+
+**Resilience**
+
+- Jev calls: per-call timeout (5 s), retries with backoff on 429/5xx/529 (honours `Retry-After`), bounded concurrency, and a process-wide circuit breaker (opens after 5 consecutive failures, half-opens after 60 s).
+- Any event Jev can't answer uses the local rules; a filter crash keeps every step. Filtering never blocks a recording.
+- Decisions are persisted before the LLM call, so a retried job reuses them (no second bill, same result).
+- Admin kill switch (`filter_enabled`) and cut-offs (`filter_drop_threshold`, `filter_review_threshold`) are flags: change them live, no redeploy.
+
+**Learning loop**
+
+```mermaid
+flowchart LR
+    P["filter_decisions<br/>(event, p_drop, decision)"] --> E["Editor: reviewer keeps,<br/>puts back or leaves out"]
+    E --> PUB["Publish"] --> FK["final_keep per event<br/>(kept iff a published step came from it)"]
+    FK --> ST["Admin: put-back rate, missed rate,<br/>threshold curve → tune cut-offs"]
+    FK --> EX["NDJSON export → evaluate a new model<br/>or train an in-house filter"]
+```
+
+`python -m app.eval_filter` scores the filter on the hand-labelled recordings in `server/eval/recordings/`
+(add exported, checked examples there over time). `--min-precision` makes it a CI gate.
+
+**What leaves the company:** with `FILTER_PROVIDER=jev`, the redacted compact event (app, window title,
+element role/label, typed text after redaction, URL without query string) plus the stated intent is sent
+to TypeSafe. Screenshots never are. Get infosec sign-off before turning it on.

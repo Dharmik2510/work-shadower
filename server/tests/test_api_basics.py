@@ -56,7 +56,9 @@ def test_auth_errors_and_public_config(client):
     h = login(client, "x@example.com")
     cfg = client.get("/api/v1/config", headers=h).json()
     assert cfg == {"recording_enabled": True, "replay_enabled": True, "llm_enabled": False,
-                   "max_recording_minutes": 30, "screenshot_policy": "key_moments"}
+                   "max_recording_minutes": 30, "screenshot_policy": "key_moments",
+                   "filter_enabled": True, "filter_drop_threshold": 0.9, "filter_review_threshold": 0.6,
+                   "split_tasks_enabled": True}
 
 
 def test_healthz(client):

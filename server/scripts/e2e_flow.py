@@ -79,7 +79,9 @@ def main() -> None:
         ev(14, "click", app="Microsoft Outlook", bundle="com.microsoft.Outlook", window="New message",
            element=el("AXButton", "Send")),
     ]
-    body = {"title_hint": "Workflow in Google Chrome, Microsoft Outlook", "started_at": "2026-10-03T14:00:00Z",
+    body = {"title_hint": "Workflow in Google Chrome, Microsoft Outlook",
+            "intent": "Filed a new auto claim and emailed the claims team",
+            "started_at": "2026-10-03T14:00:00Z",
             "ended_at": "2026-10-03T14:02:00Z",
             "client": {"app_version": "0.1.0", "os_version": "macOS 15.0", "device_id": str(uuid.uuid4())},
             "events": events}
@@ -101,9 +103,12 @@ def main() -> None:
     draft = skill["draft"]
     blob = str(draft)
     assert "jane.doe@gmail.com" not in blob and "hunter2" not in blob, "PII leaked into skill"
+    assert rec["intent"] == body["intent"] and rec["filter"] is not None, rec
     print(f"✓ worker drafted “{draft['title']}” with {len(draft['steps'])} steps; email + password not present")
+    print(f"✓ filter ({rec['filter']['source']}): {rec['filter']['counts']}")
     for s in draft["steps"]:
         flag = "  ⚠ irreversible" if s.get("irreversible") else ""
+        flag += "  (left out)" if s.get("excluded") else ""
         print(f"    {s['index']:>2}. {s['title']}{flag}")
 
     # colleague can't see the draft

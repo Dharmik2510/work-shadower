@@ -67,6 +67,11 @@ export interface Flags {
   llm_enabled: boolean;
   max_recording_minutes: number;
   screenshot_policy: ScreenshotPolicy;
+  /** Relevance filter kill switch and cut-offs (P(not needed) >= drop -> left out; >= review -> flagged). */
+  filter_enabled: boolean;
+  filter_drop_threshold: number;
+  filter_review_threshold: number;
+  split_tasks_enabled: boolean;
 }
 
 // ---------- Recorded events ----------
@@ -135,6 +140,22 @@ export interface SkillStep {
   expect?: StepExpect | null;
   screenshot_sha256: string | null;
   irreversible: boolean;
+  /** Left out of the skill (greyed in the editor, removed on publish). */
+  excluded?: boolean;
+  /** Why the filter thinks this step may not be needed. */
+  filter?: StepFilter | null;
+  /** Recorded events this step came from. */
+  source_seqs?: number[];
+}
+
+export type FilterDecision = "keep" | "review" | "drop";
+
+export interface StepFilter {
+  decision: FilterDecision;
+  /** detour | mistake_undone | exploration | duplicate | idle_or_noise | unclear_relevance | on_task | needed_navigation | free text from the model */
+  reason: string;
+  p_drop: number;
+  source: string;
 }
 
 export interface SkillInput {
@@ -247,6 +268,11 @@ export interface Recording {
   created_at: ISODate;
   /** ASSUMED optional extra; shown if present. */
   title_hint?: string | null;
+  /** The author's answer to "What did you just do?" */
+  intent?: string | null;
+  /** One draft per task found in the recording, in order. */
+  skill_ids?: ID[];
+  filter?: { source: string; counts: Record<FilterDecision, number>; segments: number; task_type: string | null } | null;
 }
 
 export interface CreateRecordingRequest {
@@ -328,6 +354,21 @@ export interface Job {
   created_at?: ISODate;
   updated_at?: ISODate;
   payload?: Record<string, unknown>;
+}
+
+export interface FilterStats {
+  days: number;
+  provider: string;
+  events: number;
+  reviewed: number;
+  decisions: Record<FilterDecision, number>;
+  matrix: { decision: FilterDecision; final_keep: boolean; n: number }[];
+  wrongly_dropped_rate: number | null;
+  missed_rate: number | null;
+  by_reason: { reason: string; n: number; restored: number }[];
+  by_source: { source: string; n: number }[];
+  threshold_curve: { threshold: number; flagged: number; precision: number | null; recall: number | null }[];
+  jev: { recordings: number; partial_failures: number; est_cost_usd: number };
 }
 
 export interface Healthz {

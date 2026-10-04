@@ -1,0 +1,371 @@
+{
+ "name": "slack_detour",
+ "intent": "Added a driver to an auto policy in PolicyCenter",
+ "events": [
+  {
+   "seq": 1,
+   "ts": "2026-10-03T14:00:00Z",
+   "type": "app_activate",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 2,
+   "ts": "2026-10-03T14:00:02Z",
+   "type": "url_change",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": "https://pc.example.com/pc/Policy.do",
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 3,
+   "ts": "2026-10-03T14:00:05Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": {
+    "role": "AXTextField",
+    "subrole": null,
+    "label": "Policy Number",
+    "identifier": "policyNo",
+    "path": [
+     "AXWindow:Guidewire PolicyCenter",
+     "AXGroup",
+     "AXTextField:Policy Number"
+    ],
+    "value_kind": "text"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 4,
+   "ts": "2026-10-03T14:00:07Z",
+   "type": "type",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": {
+    "role": "AXTextField",
+    "subrole": null,
+    "label": "Policy Number",
+    "identifier": "policyNo",
+    "path": [
+     "AXWindow:Guidewire PolicyCenter",
+     "AXGroup",
+     "AXTextField:Policy Number"
+    ],
+    "value_kind": "text"
+   },
+   "text": "P-778812",
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 5,
+   "ts": "2026-10-03T14:00:09Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Search",
+    "identifier": "searchBtn",
+    "path": [
+     "AXWindow:Guidewire PolicyCenter",
+     "AXGroup",
+     "AXButton:Search"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 6,
+   "ts": "2026-10-03T14:00:14Z",
+   "type": "app_activate",
+   "app": {
+    "bundle_id": "com.tinyspeck.slackmacgap",
+    "name": "Slack"
+   },
+   "window": {
+    "title": "general"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 7,
+   "ts": "2026-10-03T14:00:16Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.tinyspeck.slackmacgap",
+    "name": "Slack"
+   },
+   "window": {
+    "title": "general"
+   },
+   "element": {
+    "role": "AXLink",
+    "subrole": null,
+    "label": "#random",
+    "identifier": "chan-random",
+    "path": [
+     "AXWindow:general",
+     "AXGroup",
+     "AXLink:#random"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 8,
+   "ts": "2026-10-03T14:00:24Z",
+   "type": "app_activate",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 9,
+   "ts": "2026-10-03T14:00:27Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Endorse",
+    "identifier": "endorseBtn",
+    "path": [
+     "AXWindow:Guidewire PolicyCenter",
+     "AXGroup",
+     "AXButton:Endorse"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 10,
+   "ts": "2026-10-03T14:00:31Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": {
+    "role": "AXPopUpButton",
+    "subrole": null,
+    "label": "Change Type",
+    "identifier": "chgType",
+    "path": [
+     "AXWindow:Guidewire PolicyCenter",
+     "AXGroup",
+     "AXPopUpButton:Change Type"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 11,
+   "ts": "2026-10-03T14:00:34Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": {
+    "role": "AXMenuItem",
+    "subrole": null,
+    "label": "Add Driver",
+    "identifier": "addDriver",
+    "path": [
+     "AXWindow:Guidewire PolicyCenter",
+     "AXGroup",
+     "AXMenuItem:Add Driver"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 12,
+   "ts": "2026-10-03T14:00:38Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": {
+    "role": "AXTextField",
+    "subrole": null,
+    "label": "Driver Name",
+    "identifier": "drvName",
+    "path": [
+     "AXWindow:Guidewire PolicyCenter",
+     "AXGroup",
+     "AXTextField:Driver Name"
+    ],
+    "value_kind": "text"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 13,
+   "ts": "2026-10-03T14:00:40Z",
+   "type": "type",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": {
+    "role": "AXTextField",
+    "subrole": null,
+    "label": "Driver Name",
+    "identifier": "drvName",
+    "path": [
+     "AXWindow:Guidewire PolicyCenter",
+     "AXGroup",
+     "AXTextField:Driver Name"
+    ],
+    "value_kind": "text"
+   },
+   "text": "Sam Lee",
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 14,
+   "ts": "2026-10-03T14:00:45Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Guidewire PolicyCenter"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Submit",
+    "identifier": "submitBtn",
+    "path": [
+     "AXWindow:Guidewire PolicyCenter",
+     "AXGroup",
+     "AXButton:Submit"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  }
+ ],
+ "labels": {
+  "1": "keep",
+  "2": "keep",
+  "3": "keep",
+  "4": "keep",
+  "5": "keep",
+  "6": "drop",
+  "7": "drop",
+  "8": "drop",
+  "9": "keep",
+  "10": "keep",
+  "11": "keep",
+  "12": "keep",
+  "13": "keep",
+  "14": "keep"
+ },
+ "expected_segments": 1
+}

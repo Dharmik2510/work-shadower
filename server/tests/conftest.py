@@ -44,6 +44,8 @@ def make_settings(tmp_path_factory, **overrides) -> Settings:
         job_backoff_base_seconds=1.0,
         llm_daily_calls_per_user=50,
         log_level="WARNING",
+        llm_retry_base_seconds=0.001,
+        jev_retry_base_seconds=0.001,
     )
     base.update(overrides)
     return Settings(_env_file=None, **base)

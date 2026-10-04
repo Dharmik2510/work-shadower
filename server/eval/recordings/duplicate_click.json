@@ -1,0 +1,172 @@
+{
+ "name": "duplicate_click",
+ "intent": "Downloaded an invoice PDF from billing",
+ "events": [
+  {
+   "seq": 1,
+   "ts": "2026-10-03T14:00:00Z",
+   "type": "app_activate",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Billing"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 2,
+   "ts": "2026-10-03T14:00:02Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Billing"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Refresh",
+    "identifier": "refresh",
+    "path": [
+     "AXWindow:Billing",
+     "AXGroup",
+     "AXButton:Refresh"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 3,
+   "ts": "2026-10-03T14:00:04Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Billing"
+   },
+   "element": {
+    "role": "AXLink",
+    "subrole": null,
+    "label": "Invoices",
+    "identifier": "inv",
+    "path": [
+     "AXWindow:Billing",
+     "AXGroup",
+     "AXLink:Invoices"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 4,
+   "ts": "2026-10-03T14:00:06Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Billing"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Refresh",
+    "identifier": "refresh",
+    "path": [
+     "AXWindow:Billing",
+     "AXGroup",
+     "AXButton:Refresh"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 5,
+   "ts": "2026-10-03T14:00:09Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Billing"
+   },
+   "element": {
+    "role": "AXRow",
+    "subrole": null,
+    "label": "Invoice 4471",
+    "identifier": "inv4471",
+    "path": [
+     "AXWindow:Billing",
+     "AXGroup",
+     "AXRow:Invoice 4471"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 6,
+   "ts": "2026-10-03T14:00:12Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Billing"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Download PDF",
+    "identifier": "pdf",
+    "path": [
+     "AXWindow:Billing",
+     "AXGroup",
+     "AXButton:Download PDF"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  }
+ ],
+ "labels": {
+  "1": "keep",
+  "2": "keep",
+  "3": "keep",
+  "4": "drop",
+  "5": "keep",
+  "6": "keep"
+ },
+ "expected_segments": 1
+}

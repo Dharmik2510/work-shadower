@@ -1,0 +1,190 @@
+{
+ "name": "two_apps_no_detour",
+ "intent": "Exported the weekly report and emailed it to the broker team",
+ "events": [
+  {
+   "seq": 1,
+   "ts": "2026-10-03T14:00:00Z",
+   "type": "app_activate",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Portal"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 2,
+   "ts": "2026-10-03T14:00:02Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Portal"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Export Report",
+    "identifier": "export",
+    "path": [
+     "AXWindow:Portal",
+     "AXGroup",
+     "AXButton:Export Report"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 3,
+   "ts": "2026-10-03T14:00:08Z",
+   "type": "app_activate",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Outlook"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 4,
+   "ts": "2026-10-03T14:00:10Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Outlook"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "New Email",
+    "identifier": "new",
+    "path": [
+     "AXWindow:Outlook",
+     "AXGroup",
+     "AXButton:New Email"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 5,
+   "ts": "2026-10-03T14:00:12Z",
+   "type": "type",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Message"
+   },
+   "element": {
+    "role": "AXTextField",
+    "subrole": null,
+    "label": "To",
+    "identifier": "to",
+    "path": [
+     "AXWindow:Message",
+     "AXGroup",
+     "AXTextField:To"
+    ],
+    "value_kind": "text"
+   },
+   "text": "Broker team",
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 6,
+   "ts": "2026-10-03T14:00:16Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Message"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Attach File",
+    "identifier": "attach",
+    "path": [
+     "AXWindow:Message",
+     "AXGroup",
+     "AXButton:Attach File"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 7,
+   "ts": "2026-10-03T14:00:20Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Message"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Send",
+    "identifier": "send",
+    "path": [
+     "AXWindow:Message",
+     "AXGroup",
+     "AXButton:Send"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  }
+ ],
+ "labels": {
+  "1": "keep",
+  "2": "keep",
+  "3": "keep",
+  "4": "keep",
+  "5": "keep",
+  "6": "keep",
+  "7": "keep"
+ },
+ "expected_segments": 1
+}

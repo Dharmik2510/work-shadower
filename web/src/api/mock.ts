@@ -5,6 +5,7 @@ import type {
   CreateRunRequest,
   CreateSkillRequest,
   DevLoginRequest,
+  FilterStats,
   Flags,
   ID,
   Job,
@@ -249,8 +250,25 @@ const rentalDraft: SkillContent = {
       shot: { app: "Chrome", window: "Rental Partner — New reservation", url: "rentals.example.com/insurer/new", fields: [["Claim #", "C-26-118402"], ["Branch", "Toronto – Queen St E"]], highlight: "Check availability" },
     }),
     step(2, "Enter the claim", "Type the claim number C-26-118402 into Claim #.", "Google Chrome", { type: "type", target: field("Claim #", "Rental Partner"), text: "C-26-118402" }),
-    step(3, "Clicked Check availability", "Click Check availability.", "Google Chrome", { type: "click", target: btn("Check availability", "Rental Partner") }),
-    step(4, "Confirm reservation", "Click Confirm reservation.", "Google Chrome", { type: "click", target: btn("Confirm reservation", "Rental Partner") }, {
+    {
+      ...step(3, "Open Slack", "Open or switch to Slack.", "Slack", { type: "open_app" }),
+      excluded: true,
+      filter: { decision: "drop", reason: "detour", p_drop: 0.96, source: "jev" },
+      source_seqs: [9],
+    },
+    {
+      ...step(4, "Click “#claims-ontario”", "Click the “#claims-ontario” link.", "Slack", { type: "click", target: btn("#claims-ontario", "Slack") }),
+      excluded: true,
+      filter: { decision: "drop", reason: "detour", p_drop: 0.94, source: "jev" },
+      source_seqs: [10],
+    },
+    {
+      ...step(5, "Click “Vehicle class”", "Click the “Vehicle class” dropdown.", "Google Chrome", { type: "click", target: btn("Vehicle class", "Rental Partner") }),
+      filter: { decision: "review", reason: "exploration", p_drop: 0.71, source: "jev+local" },
+      source_seqs: [12, 13],
+    },
+    step(6, "Clicked Check availability", "Click Check availability.", "Google Chrome", { type: "click", target: btn("Check availability", "Rental Partner") }),
+    step(7, "Confirm reservation", "Click Confirm reservation.", "Google Chrome", { type: "click", target: btn("Confirm reservation", "Rental Partner") }, {
       shot: { app: "Chrome", window: "Rental Partner — Confirm", url: "rentals.example.com/insurer/confirm", fields: [["Vehicle", "Compact · up to 30 days"], ["Daily rate", "$45.00"]], highlight: "Confirm reservation", danger: true },
     }),
   ],
@@ -329,7 +347,11 @@ const startedProcessing = Date.now();
 const recordings: Recording[] = [
   { id: "9a7d3b10-0004-4000-8000-0000000000a4", status: "received", event_count: 212, created_at: ago(0.5), title_hint: "Update mailing address on a policy" },
   { id: "9a7d3b10-0003-4000-8000-0000000000a3", status: "processing", event_count: 87, created_at: ago(3), title_hint: "Approve a glass claim payment" },
-  { id: R.rental, status: "ready", skill_id: S.rental, event_count: 46, created_at: ago(16), title_hint: "Rental car booking" },
+  {
+    id: R.rental, status: "ready", skill_id: S.rental, skill_ids: [S.rental], event_count: 46, created_at: ago(16), title_hint: "Rental car booking",
+    intent: "Booked a rental car for a claimant through the partner portal",
+    filter: { source: "jev", counts: { keep: 15, review: 2, drop: 2 }, segments: 1, task_type: null },
+  },
   { id: "9a7d3b10-0002-4000-8000-0000000000a2", status: "failed", error: "The recording only had scroll events, so there were no steps to turn into a skill. Record again and click through the task.", event_count: 9, created_at: ago(60 * 26) },
   { id: "9a7d3b10-0005-4000-8000-0000000000a5", status: "ready", skill_id: S.ubi, event_count: 31, created_at: ago(60 * 30), title_hint: "UBI trip export" },
 ];
@@ -384,7 +406,10 @@ const runs: Run[] = [];
 })();
 
 // ---------- admin ----------
-let flags: Flags = { recording_enabled: true, replay_enabled: true, llm_enabled: true, max_recording_minutes: 20, screenshot_policy: "key_moments" };
+let flags: Flags = {
+  recording_enabled: true, replay_enabled: true, llm_enabled: true, max_recording_minutes: 20, screenshot_policy: "key_moments",
+  filter_enabled: true, filter_drop_threshold: 0.9, filter_review_threshold: 0.6, split_tasks_enabled: true,
+};
 const jobs: Job[] = [
   { id: "j-0001-dead", kind: "draft_from_recording", status: "dead", attempts: 5, max_attempts: 5, last_error: "anthropic: 529 overloaded (after 5 attempts)", created_at: ago(60 * 7), updated_at: ago(60 * 2) },
   { id: "j-0002-dead", kind: "embed_skill", status: "dead", attempts: 5, max_attempts: 5, last_error: "openai embeddings: connection reset by peer", created_at: ago(60 * 30), updated_at: ago(60 * 28) },
@@ -568,9 +593,10 @@ export class MockApiClient implements ApiClient {
     requireOwner(r.skill);
     const content = r.skill.draft ?? r.skill.published;
     if (!content) throw new ApiError(409, "nothing_to_publish", "There's no draft to publish.");
-    if (!content.steps.length) throw new ApiError(422, "no_steps", "Add at least one step before publishing.");
+    // Same as the server: left-out steps are removed and filter notes dropped on publish.
+    content.steps = content.steps.filter((s) => !s.excluded).map((s, i) => ({ ...s, index: i + 1, excluded: false, filter: null }));
+    if (!content.steps.length) throw new ApiError(422, "skill_has_no_steps", "A skill needs at least one step to be published.");
     const version = r.skill.current_version + 1;
-    content.steps = content.steps.map((s, i) => ({ ...s, index: i + 1 }));
     r.versions.push({ version, content: clone(content), created_at: new Date().toISOString(), created_by: meRef() });
     Object.assign(r.skill, { current_version: version, published: clone(content), draft: null, status: "published", updated_at: new Date().toISOString() });
     return clone(r.skill);
@@ -647,6 +673,53 @@ export class MockApiClient implements ApiClient {
         { team_id: T.ubi.id, team_name: T.ubi.name, llm_calls: Math.round(153 * k), est_cost_usd: 5.35 * k },
       ],
     };
+  }
+  async filterStats(days = 30): Promise<FilterStats> {
+    await wait();
+    this.requireAdmin();
+    const k = days / 30;
+    const n = (x: number) => Math.round(x * k);
+    return {
+      days,
+      provider: "jev",
+      events: n(18_420),
+      reviewed: n(12_960),
+      decisions: { keep: n(15_870), review: n(1_410), drop: n(1_140) },
+      matrix: [
+        { decision: "drop", final_keep: false, n: n(742) },
+        { decision: "drop", final_keep: true, n: n(31) },
+        { decision: "keep", final_keep: false, n: n(118) },
+        { decision: "keep", final_keep: true, n: n(11_102) },
+        { decision: "review", final_keep: false, n: n(604) },
+        { decision: "review", final_keep: true, n: n(363) },
+      ],
+      wrongly_dropped_rate: 0.0401,
+      missed_rate: 0.0105,
+      by_reason: [
+        { reason: "detour", n: n(1_202), restored: n(48) },
+        { reason: "exploration", n: n(688), restored: n(201) },
+        { reason: "mistake_undone", n: n(341), restored: n(9) },
+        { reason: "duplicate", n: n(212), restored: n(41) },
+        { reason: "unclear_relevance", n: n(107), restored: n(64) },
+      ],
+      by_source: [{ source: "jev", n: n(17_830) }, { source: "jev+local", n: n(402) }, { source: "local", n: n(188) }],
+      threshold_curve: [
+        { threshold: 0.5, flagged: n(2_310), precision: 0.62, recall: 0.97 },
+        { threshold: 0.6, flagged: n(1_740), precision: 0.77, recall: 0.92 },
+        { threshold: 0.7, flagged: n(1_420), precision: 0.85, recall: 0.87 },
+        { threshold: 0.75, flagged: n(1_260), precision: 0.89, recall: 0.82 },
+        { threshold: 0.8, flagged: n(1_090), precision: 0.92, recall: 0.75 },
+        { threshold: 0.85, flagged: n(930), precision: 0.94, recall: 0.66 },
+        { threshold: 0.9, flagged: n(773), precision: 0.96, recall: 0.56 },
+        { threshold: 0.95, flagged: n(512), precision: 0.98, recall: 0.38 },
+      ],
+      jev: { recordings: n(611), partial_failures: n(4), est_cost_usd: Math.round(0.71 * k * 100) / 100 },
+    };
+  }
+  async filterExport() {
+    await wait();
+    this.requireAdmin();
+    return new Blob(['{"seq":1,"decision":"keep","final_keep":true}\n'], { type: "application/x-ndjson" });
   }
   async deadJobs() {
     await wait();
