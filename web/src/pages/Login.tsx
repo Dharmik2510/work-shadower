@@ -4,7 +4,7 @@ import { KeyRound } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { beginOidcLogin } from "../auth/oidc";
-import { Dot } from "../components/Dot";
+import { Avatar, AVATARS } from "../components/Avatar";
 import { Spinner } from "../components/bits";
 
 export default function Login() {
@@ -49,7 +49,11 @@ export default function Login() {
   return (
     <div className="login">
       <div className="login__panel">
-        <Dot size={72} className="login__dot" label="Work Shadower" />
+        <div className="login__crew" role="img" aria-label="The five Work Shadower dots">
+          {AVATARS.map((a, i) => (
+            <Avatar key={a.kind} kind={a.kind} size={i === 2 ? 64 : 46} awake={i === 2} idle={i === 2} style={{ ["--i" as string]: i }} />
+          ))}
+        </div>
         <h1>Sign in to Work Shadower</h1>
         <p className="login__lede">Learn how colleagues get things done, or teach the dot one of your own workflows.</p>
 

@@ -27,18 +27,23 @@ export interface TeamRef {
   name: string;
 }
 
+/** The dot character a person picked to represent them. */
+export type AvatarKind = "orb" | "sprout" | "ember" | "nimbus" | "pixel";
+
 export interface User {
   id: ID;
   email: string;
   name: string;
   role: Role;
   teams: TeamRef[];
+  avatar?: AvatarKind;
 }
 
 export interface UserRef {
   id: ID;
   name: string;
   email: string;
+  avatar?: AvatarKind;
 }
 
 export interface DevLoginRequest {

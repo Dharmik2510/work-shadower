@@ -71,4 +71,14 @@ final class IntentAndFilterTests: XCTestCase {
         XCTAssertEqual(c.steps.map { $0.excluded }, [false, true, false])
         XCTAssertEqual(c.runnableSteps.map { $0.title }, ["A", "C"])
     }
+
+    func testUserAvatarDecodesWithFallback() throws {
+        let a = try DotJSON.decoder().decode(User.self, from: Data(#"{"id":"u","avatar":"ember"}"#.utf8))
+        XCTAssertEqual(a.avatar, .ember)
+        let b = try DotJSON.decoder().decode(User.self, from: Data(#"{"id":"u","avatar":"dragon"}"#.utf8))
+        XCTAssertEqual(b.avatar, .orb)
+        let c = try DotJSON.decoder().decode(User.self, from: Data(#"{"id":"u"}"#.utf8))
+        XCTAssertEqual(c.avatar, .orb)
+        XCTAssertEqual(AvatarKind.allCases.count, 5)
+    }
 }

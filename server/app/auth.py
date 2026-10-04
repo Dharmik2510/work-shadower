@@ -30,6 +30,7 @@ class CurrentUser:
     name: str
     role: str
     teams: list[dict[str, str]] = field(default_factory=list)
+    avatar: str = "orb"
 
     @property
     def is_admin(self) -> bool:
@@ -44,7 +45,8 @@ class CurrentUser:
         return self.teams[0]["id"] if self.teams else None
 
     def to_json(self) -> dict[str, Any]:
-        return {"id": self.id, "email": self.email, "name": self.name, "role": self.role, "teams": self.teams}
+        return {"id": self.id, "email": self.email, "name": self.name, "role": self.role, "teams": self.teams,
+                "avatar": self.avatar}
 
 
 def hash_token(token: str) -> str:
@@ -52,7 +54,7 @@ def hash_token(token: str) -> str:
 
 
 def load_user(conn: psycopg.Connection, user_id: str) -> CurrentUser | None:
-    row = conn.execute("SELECT id::text, email, name, role FROM users WHERE id = %s", (user_id,)).fetchone()
+    row = conn.execute("SELECT id::text, email, name, role, avatar FROM users WHERE id = %s", (user_id,)).fetchone()
     if not row:
         return None
     teams = conn.execute(
@@ -60,7 +62,7 @@ def load_user(conn: psycopg.Connection, user_id: str) -> CurrentUser | None:
         "WHERE m.user_id = %s ORDER BY t.name",
         (user_id,),
     ).fetchall()
-    return CurrentUser(row["id"], row["email"], row["name"], row["role"], [dict(t) for t in teams])
+    return CurrentUser(row["id"], row["email"], row["name"], row["role"], [dict(t) for t in teams], row["avatar"])
 
 
 def ensure_team(conn: psycopg.Connection, name: str) -> str:

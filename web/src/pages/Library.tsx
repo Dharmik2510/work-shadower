@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PenLine, Search, X } from "lucide-react";
 import { api, type SkillStatus, type SkillSummary, type TeamRef } from "../api";
 import { useUser } from "../auth/AuthContext";
-import { Dot } from "../components/Dot";
+import { Avatar } from "../components/Avatar";
 import { Empty, ErrorNote, HealthBadge, RecordWithDotSteps, SkillStatusPill, Spinner, VISIBILITY_LABEL } from "../components/bits";
 import { relTime } from "../lib/format";
 import { useAsync, useDebounced } from "../lib/useAsync";
@@ -18,6 +18,12 @@ export default function Library() {
   const mine = params.get("mine") === "1";
   const status = (params.get("status") ?? "") as SkillStatus | "";
   const [focused, setFocused] = useState(false);
+  // A short hello when the library opens: the avatar wakes up and smiles, then settles.
+  const [greeting, setGreeting] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setGreeting(false), 1800);
+    return () => clearTimeout(t);
+  }, []);
   const input = useRef<HTMLInputElement>(null);
   const dq = useDebounced(q.trim(), 250);
 
@@ -48,11 +54,12 @@ export default function Library() {
   return (
     <div className="page library">
       <section className="ask">
+        <h1 className="ask__hello">Hi {user.name.split(" ")[0]}, what do you need to get done?</h1>
         <label htmlFor="ask" className="ask__label">
           Search the skill library
         </label>
         <div className={`ask__box ${focused || q ? "is-active" : ""}`}>
-          <Dot size={52} awake={focused || !!q} look={focused || q ? look : 0} className="ask__dot" />
+          <Avatar kind={user.avatar} size={56} awake={focused || !!q || greeting} happy={greeting || (focused && !q)} look={focused || q ? look : 0} className="ask__dot" />
           <input
             id="ask"
             ref={input}
@@ -132,7 +139,7 @@ export default function Library() {
       {results.data && items.length === 0 && !results.loading && (
         searching ? (
           <Empty
-            art={<Dot size={56} />}
+            art={<Avatar kind={user.avatar} size={64} awake idle />}
             title={`Nothing for “${dq}” yet`}
             actions={
               <>
@@ -154,7 +161,7 @@ export default function Library() {
             <RecordWithDotSteps />
           </Empty>
         ) : (
-          <Empty art={<Dot size={56} />} title={mine ? "You haven't recorded any skills yet" : "The library is empty"}>
+          <Empty art={<Avatar kind={user.avatar} size={64} awake idle />} title={mine ? "You haven't recorded any skills yet" : "The library is empty"}>
             <p>Skills come from people doing their work once while the dot watches. Here's how to record your first one:</p>
             <RecordWithDotSteps />
           </Empty>
@@ -164,7 +171,7 @@ export default function Library() {
       {items.length > 0 && (
         <ul className={`skills ${results.loading ? "is-stale" : ""}`}>
           {items.map((s) => (
-            <SkillRow key={s.id} s={s} mine={s.owner.id === user.id} />
+            <SkillRow key={s.id} s={s} mine={s.owner.id === user.id} myAvatar={user.avatar} />
           ))}
         </ul>
       )}
@@ -172,10 +179,10 @@ export default function Library() {
   );
 }
 
-function SkillRow({ s, mine }: { s: SkillSummary; mine: boolean }) {
+function SkillRow({ s, mine, myAvatar }: { s: SkillSummary; mine: boolean; myAvatar?: string }) {
   const to = s.status === "draft" && mine ? `/skills/${s.id}/edit` : `/skills/${s.id}`;
   return (
-    <li className="skill">
+    <li className="skill av-host">
       <div className="skill__main">
         <h3 className="skill__title">
           <Link to={to}>{s.title || "Untitled skill"}</Link>
@@ -189,6 +196,7 @@ function SkillRow({ s, mine }: { s: SkillSummary; mine: boolean }) {
           ))}
           {s.apps.length > 3 && <span className="chip chip--more">+{s.apps.length - 3}</span>}
           <span className="skill__by">
+            <Avatar kind={mine ? myAvatar : s.owner.avatar} size={20} />
             {mine ? "You" : s.owner.name}
             {s.team && <span className="skill__team">{s.team.name}</span>}
           </span>

@@ -157,6 +157,14 @@ class DevLogin(BaseModel):
     team: str | None = Field(default=None, max_length=100)
 
 
+AvatarKind = Literal["orb", "sprout", "ember", "nimbus", "pixel"]
+
+
+class MePatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    avatar: AvatarKind
+
+
 class PresignRequest(BaseModel):
     sha256: str = Field(pattern=_SHA_RE)
     content_type: Literal["image/jpeg", "image/png"]

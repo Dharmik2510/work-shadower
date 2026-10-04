@@ -9,6 +9,8 @@ interface AuthState {
   configError: string | null;
   signIn(token: string, user?: User): Promise<void>;
   signOut(): void;
+  /** Replace the signed-in user after a profile change (e.g. a new avatar). */
+  setUser(u: User): void;
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -59,7 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u ?? (await api.me()));
   }, []);
 
-  const value = useMemo(() => ({ user, config, loading, configError, signIn, signOut }), [user, config, loading, configError, signIn, signOut]);
+  const value = useMemo(
+    () => ({ user, config, loading, configError, signIn, signOut, setUser }),
+    [user, config, loading, configError, signIn, signOut],
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

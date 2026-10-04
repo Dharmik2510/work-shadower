@@ -46,6 +46,7 @@ cd mac && ./build.sh && open Dot.app   # Settings → server http://localhost:80
 - **Ask what the task was.** When recording stops, the dot asks "What did you just do?" (one line, skippable). That becomes the title and goal.
 - **Leave out what isn't the task.** A relevance filter scores every action (local rules, plus the TypeSafe Jev model if enabled). Side trips, undone mistakes and aimless clicks are greyed out in the draft, never deleted; reviewers can put them back. A recording with two unrelated tasks becomes two drafts.
 - **One LLM call per task, optional.** Structured output via a forced tool call, retries with backoff, prompt caching, optional batch mode at half the cost. With `LLM_PROVIDER=none` a rule-based writer still produces good drafts.
+- **Pick your dot.** Five characters (Orb, Sprout, Ember, Nimbus, Pixel). Your choice is your floating dot on the Mac and your picture next to the skills you share. They wake up and smile when you hover.
 - **Learns from reviewers.** Every publish records which steps people kept. Admins see the put-back rate and a threshold table, can tune the cut-offs live, and can export labelled examples.
 - **Local-first Mac.** Recordings survive offline and restarts; uploads retry with backoff.
 - **Humans stay in control.** Drafts are reviewed before publishing. Replay always stops before anything that can't be undone.

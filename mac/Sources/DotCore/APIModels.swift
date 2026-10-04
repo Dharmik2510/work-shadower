@@ -2,22 +2,45 @@ import Foundation
 
 // MARK: - Auth & config
 
+/// The dot character a person picked (same five as the web app). Unknown values decode as `.orb`.
+public enum AvatarKind: String, Codable, CaseIterable, Equatable {
+    case orb, sprout, ember, nimbus, pixel
+
+    public init(from decoder: Decoder) throws {
+        let raw = (try? decoder.singleValueContainer().decode(String.self)) ?? ""
+        self = AvatarKind(rawValue: raw) ?? .orb
+    }
+
+    public var displayName: String {
+        switch self {
+        case .orb: return "Orb"
+        case .sprout: return "Sprout"
+        case .ember: return "Ember"
+        case .nimbus: return "Nimbus"
+        case .pixel: return "Pixel"
+        }
+    }
+}
+
 public struct User: Codable, Equatable {
     public var id: String
     public var email: String
     public var name: String
     public var role: String?
     public var teams: [TeamRef]
+    public var avatar: AvatarKind
 
-    public init(id: String, email: String, name: String, role: String? = nil, teams: [TeamRef] = []) {
+    public init(id: String, email: String, name: String, role: String? = nil, teams: [TeamRef] = [],
+                avatar: AvatarKind = .orb) {
         self.id = id
         self.email = email
         self.name = name
         self.role = role
         self.teams = teams
+        self.avatar = avatar
     }
 
-    enum CodingKeys: String, CodingKey { case id, email, name, role, teams }
+    enum CodingKeys: String, CodingKey { case id, email, name, role, teams, avatar }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -26,6 +49,7 @@ public struct User: Codable, Equatable {
         name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? ""
         role = try? c.decodeIfPresent(String.self, forKey: .role)
         teams = (try? c.decodeIfPresent([TeamRef].self, forKey: .teams)) ?? []
+        avatar = (try? c.decodeIfPresent(AvatarKind.self, forKey: .avatar)) ?? .orb
     }
 }
 

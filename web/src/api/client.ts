@@ -1,4 +1,5 @@
 import type {
+  AvatarKind,
   CreateRunRequest,
   CreateSkillRequest,
   DevLoginRequest,
@@ -57,6 +58,7 @@ export interface ApiClient {
   publicConfig(): Promise<PublicConfig>;
   devLogin(body: DevLoginRequest): Promise<DevLoginResponse>;
   me(): Promise<User>;
+  updateMe(body: { avatar: AvatarKind }): Promise<User>;
   teams(): Promise<{ items: TeamRef[] }>;
   config(): Promise<Flags>;
   // assets
@@ -164,6 +166,9 @@ export class HttpApiClient implements ApiClient {
   }
   me() {
     return this.json<User>("GET", "/me");
+  }
+  updateMe(body: { avatar: AvatarKind }) {
+    return this.json<User>("PATCH", "/me", { body });
   }
   teams() {
     return this.json<{ items: TeamRef[] }>("GET", "/teams");

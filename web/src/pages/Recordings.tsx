@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { api } from "../api";
-import { Dot } from "../components/Dot";
+import { useUser } from "../auth/AuthContext";
+import { Avatar } from "../components/Avatar";
 import { Empty, ErrorNote, RecordingStatusPill, RecordWithDotSteps, Spinner } from "../components/bits";
 import { dateTime, relTime } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
@@ -10,6 +11,7 @@ import { useAsync } from "../lib/useAsync";
 const POLL_MS = 3000;
 
 export default function Recordings() {
+  const user = useUser();
   const recs = useAsync(() => api.listRecordings({ limit: 50 }), []);
   const items = recs.data?.items ?? [];
   const pending = items.some((r) => r.status === "received" || r.status === "processing");
@@ -34,7 +36,7 @@ export default function Recordings() {
       {!recs.data && recs.loading && <Spinner label="Loading recordings" />}
 
       {recs.data && items.length === 0 && (
-        <Empty art={<Dot size={56} />} title="No recordings yet">
+        <Empty art={<Avatar kind={user.avatar} size={64} awake idle />} title="No recordings yet">
           <RecordWithDotSteps />
         </Empty>
       )}
@@ -43,7 +45,7 @@ export default function Recordings() {
         <>
           {pending && (
             <p className="polling" role="status">
-              <Dot size={18} awake /> Writing drafts. This page updates on its own.
+              <Avatar kind={user.avatar} size={22} awake idle /> Writing drafts. This page updates on its own.
             </p>
           )}
           <ul className="recs">

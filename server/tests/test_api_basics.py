@@ -34,7 +34,7 @@ def test_dev_login_and_me(client):
     assert me["name"] == "Alice"
     assert me["role"] == "member"
     assert [t["name"] for t in me["teams"]] == ["UBI"]
-    assert set(me) == {"id", "email", "name", "role", "teams"}
+    assert set(me) == {"id", "email", "name", "role", "teams", "avatar"}
 
     admin = login(client, "admin@example.com", "Admin")
     assert client.get("/api/v1/me", headers=admin).json()["role"] == "admin"

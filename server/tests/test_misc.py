@@ -58,7 +58,7 @@ def test_concurrent_migrations_are_safe():
     [t.start() for t in threads]
     [t.join() for t in threads]
     assert not errors
-    assert sorted(len(r) for r in results) == [0, 0, 0, 3]  # exactly one runner applied them
+    assert sorted(len(r) for r in results) == [0, 0, 0, 4]  # exactly one runner applied them
     assert run_migrations(url) == []
     with psycopg.connect(TEST_DB_URL.rsplit("/", 1)[0] + "/postgres", autocommit=True) as c:
         c.execute(f'DROP DATABASE IF EXISTS "{url.rsplit("/", 1)[1]}" WITH (FORCE)')

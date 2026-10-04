@@ -4,6 +4,7 @@ import { ArrowLeft, History, Link2, Lock, MonitorPlay, PenLine, ShieldAlert } fr
 import { api, type SkillContent, type SkillStep } from "../api";
 import { useUser } from "../auth/AuthContext";
 import { AuthImage, Lightbox } from "../components/AuthImage";
+import { Avatar } from "../components/Avatar";
 import { Dot } from "../components/Dot";
 import { ErrorNote, HealthBadge, SkillStatusPill, Spinner, VISIBILITY_LABEL, WithInputs } from "../components/bits";
 import { useToast } from "../components/Toast";
@@ -101,7 +102,10 @@ export default function SkillDetail() {
           <dl className="facts">
             <div>
               <dt>Owner</dt>
-              <dd>{s.owner.id === user.id ? "You" : s.owner.name}</dd>
+              <dd className="owner av-host">
+                <Avatar kind={s.owner.id === user.id ? user.avatar : s.owner.avatar} size={22} />
+                {s.owner.id === user.id ? "You" : s.owner.name}
+              </dd>
             </div>
             {s.team && (
               <div>

@@ -70,6 +70,7 @@ final class SettingsStore {
         static let onboarded = "onboarded"
         static let replayMode = "replayMode"
         static let askIntent = "askIntentAfterRecording"
+        static let avatar = "avatar"
     }
 
     var serverURLString: String {
@@ -107,6 +108,12 @@ final class SettingsStore {
     var replayMode: RunMode {
         get { return RunMode(rawValue: d.string(forKey: K.replayMode) ?? "") ?? .guided }
         set { d.set(newValue.rawValue, forKey: K.replayMode) }
+    }
+
+    /// The dot character (cached so the dot looks right before the server answers).
+    var avatar: AvatarKind {
+        get { return AvatarKind(rawValue: d.string(forKey: K.avatar) ?? "") ?? .orb }
+        set { d.set(newValue.rawValue, forKey: K.avatar) }
     }
 
     /// Ask "What did you just do?" when a recording stops (default on).
