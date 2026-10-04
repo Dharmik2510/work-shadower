@@ -18,7 +18,8 @@ Serve the web app from the same process: `cd ../web && npm run build`, then set 
 ## Tests
 
 ```bash
-pytest                                    # 35 tests against a real Postgres (workshadower_test DB)
+pytest                                    # 58 tests against a real Postgres (workshadower_test DB)
+python -m app.eval_filter                 # score the step filter on eval/recordings/*.json (add --provider jev)
 python scripts/e2e_flow.py http://localhost:8000   # full Mac → worker → publish → search → run → kill switch flow
 ```
 
@@ -32,12 +33,14 @@ python scripts/e2e_flow.py http://localhost:8000   # full Mac → worker → pub
 | Visibility | `app/skills.py` → `visibility_sql()` | One central SQL predicate used by every skill, search and asset query |
 | Storage | `app/storage.py` | `s3` (AWS / MinIO / any S3 API) or `local`. Uploads go straight to storage via presigned URLs; content-hash dedup |
 | Redaction | `app/redact.py` | Re-checks everything the Mac sends: emails, card-like, SIN-like, phone numbers; secure fields dropped |
-| Skill writer | `app/skillgen.py` | Cleanup in code first, then **one** LLM call → validated JSON. Any LLM failure or budget hit → rule-based writer (still produces a usable skill) |
-| LLM | `app/llm.py` | `anthropic`, `openai` (any OpenAI-compatible URL), or `none`. Embeddings: `openai` or `none` |
+| Step filter | `app/filtering.py` | keep / review / drop per event from local rules and (optionally) TypeSafe Jev; retries, circuit breaker, bounded concurrency; splits multi-task recordings. Decisions stored in `filter_decisions`, reviewer verdicts added on publish |
+| Skill writer | `app/skillgen.py` | Cleanup in code, filter, then **one** LLM call per task → forced tool call → validated JSON. Dropped steps stay as `excluded`. Any LLM failure or budget hit → rule-based writer (still produces a usable skill) |
+| LLM | `app/llm.py` | `anthropic` (tool use, prompt caching, Message Batches), `openai` (any OpenAI-compatible URL), or `none`. Retries with backoff on 429/5xx/529. Embeddings: `openai` or `none` |
+| Filter eval | `app/eval_filter.py`, `eval/` | Precision/recall of drops on hand-labelled recordings; `--min-precision` for CI |
 | Search | `app/skills.py` | Postgres full-text + pgvector (if installed), merged with reciprocal rank fusion. Works without pgvector |
 | Jobs | `app/jobs.py`, `app/worker.py` | Postgres queue, `FOR UPDATE SKIP LOCKED`, exponential backoff, `dead` after max attempts, stuck-job reclaim |
 | Costs | `app/usage.py` | Every LLM call logged with tokens + estimated cost; per-user daily budget |
-| Flags | `app/flags.py` | Kill switch for recording / replay, screenshot policy, max recording length |
+| Flags | `app/flags.py` | Kill switch for recording / replay / step filter / task splitting, filter cut-offs, screenshot policy, max recording length |
 
 ## Scaling notes
 

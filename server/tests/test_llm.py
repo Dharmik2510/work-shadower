@@ -78,7 +78,7 @@ def test_anthropic_provider_request_and_parsing(llm_settings):
     assert str(req.url) == "https://api.anthropic.com/v1/messages"
     assert req.headers["x-api-key"] == "sk-test" and req.headers["anthropic-version"] == "2023-06-01"
     body = json.loads(req.content)
-    assert body["model"] == "claude-haiku-4-5" and body["system"] == "sys"
+    assert body["model"] == "claude-haiku-4-5" and body["system"][0]["text"] == "sys" and body["system"][0]["cache_control"] == {"type": "ephemeral"}
     assert body["messages"] == [{"role": "user", "content": "prompt"}]
     assert p.estimate_cost(1_000_000, 1_000_000) == pytest.approx(6.0)
     with pytest.raises(LLMError) as e:

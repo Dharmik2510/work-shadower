@@ -95,12 +95,20 @@ and phone numbers with `[REDACTED:<kind>]`.
       },
       "expect": {"window_title_contains": "Claim #", "element_present": {"role":"AXStaticText","label":"Saved"}},
       "screenshot_sha256": "hex|null",
-      "irreversible": false
+      "irreversible": false,
+      "excluded": false,
+      "filter": {"decision":"keep|review|drop","reason":"detour|mistake_undone|exploration|duplicate|idle_or_noise|unclear_relevance|on_task|needed_navigation|<free text>","p_drop":0.0,"source":"local|jev|jev+local|llm|human"},
+      "source_seqs": [12, 13]
     }
   ],
   "tags": ["claims","onboarding"]
 }
 ```
+
+`excluded` steps exist only in drafts: the editor greys them out and the reviewer can put them back.
+`POST /skills/{id}/publish` removes excluded steps and clears `filter`, so published versions (and replay)
+never contain them. `filter` explains why the relevance filter thinks a step may not be needed;
+`source_seqs` ties a step to the recorded events it came from (used for reviewer feedback).
 
 ### Skill (API response)
 ```json
@@ -121,7 +129,7 @@ Auth & config
 - `GET /me` → User
 - `GET /teams` → `{items:[{id,name}]}`
 - `GET /config/public` → `{auth_mode, oidc:{issuer,client_id}|null}`
-- `GET /config` → flags `{recording_enabled, replay_enabled, llm_enabled, max_recording_minutes, screenshot_policy:"key_moments|none"}`
+- `GET /config` → flags `{recording_enabled, replay_enabled, llm_enabled, max_recording_minutes, screenshot_policy:"key_moments|none", filter_enabled, filter_drop_threshold, filter_review_threshold, split_tasks_enabled}`
 
 Assets (screenshots)
 - `POST /assets/presign` `{sha256, content_type:"image/jpeg|image/png", bytes}` → `{asset_id, exists:bool, upload:{method:"PUT", url, headers:{}}|null}` (if `exists`, skip upload — content-hash dedup). Max 2 MB.
@@ -129,8 +137,8 @@ Assets (screenshots)
 - `GET  /assets/{sha256}` → 302 redirect to presigned GET (or streams bytes in local mode). Access: caller must be able to see a skill/recording referencing it.
 
 Recordings
-- `POST /recordings` (Idempotency-Key) `{title_hint?, started_at, ended_at, client:{app_version, os_version, device_id}, events:[Event…]}` → `{id, status:"received"}` (202). Max 5,000 events.
-- `GET  /recordings` / `GET /recordings/{id}` → `{id,status:"received|processing|ready|failed",error?,skill_id?,event_count,created_at}`
+- `POST /recordings` (Idempotency-Key) `{title_hint?, intent?, started_at, ended_at, client:{app_version, os_version, device_id}, events:[Event…]}` → `{id, status:"received"}` (202). Max 5,000 events. `intent` (≤1000 chars) is the author's answer to "What did you just do?"; redacted on the Mac and again on the server.
+- `GET  /recordings` / `GET /recordings/{id}` → `{id,status:"received|processing|ready|failed",error?,skill_id?,skill_ids:[…],event_count,title_hint,intent,filter:{source,counts:{keep,review,drop},segments,task_type}|null,created_at}`. A recording that contained several unrelated tasks becomes several drafts (`skill_ids`, in task order; `skill_id` is the first).
 
 Skills
 - `GET    /skills?q=&team_id=&status=&mine=true&limit=&cursor=` → paged SkillSummary
@@ -155,9 +163,12 @@ Runs (replay telemetry)
 Admin (role=admin)
 - `GET /admin/flags`, `PUT /admin/flags` (same shape as `/config`; kill switch = set `recording_enabled`/`replay_enabled` false)
 - `GET /admin/usage?days=30` → `{llm_calls, input_tokens, output_tokens, est_cost_usd, by_team:[…], skills_created, runs, run_success_rate}`
+- `GET /admin/filter/stats?days=30` → how the relevance filter agrees with reviewers: decision counts, `matrix` (decision × final_keep), `wrongly_dropped_rate`, `missed_rate`, `by_reason`, `by_source`, `threshold_curve:[{threshold,flagged,precision,recall}]`, Jev cost
+- `GET /admin/filter/export?days=90&reviewed_only=true` → NDJSON of labelled examples `{recording_id, seq, segment, event (redacted), decision, reason, p_drop, source, model, final_keep, goal}`
+- `PUT /admin/flags` also takes `filter_enabled`, `filter_drop_threshold`, `filter_review_threshold` (review ≤ drop, both in (0,1]), `split_tasks_enabled`
 - `GET /admin/jobs?status=dead` → failed jobs for ops
 - `POST /admin/jobs/{id}/retry`
 
 Ops
 - `GET /healthz` → `{ok:true, db:true, storage:true}`
-- Rate limits / budgets: env `LLM_DAILY_CALLS_PER_USER` (default 50); exceed → recording is still processed with heuristic fallback (never fails because of budget).
+- Rate limits / budgets: env `LLM_DAILY_CALLS_PER_USER` (default 50); exceed → recording is still processed with heuristic fallback (never fails because of budget). Relevance-filter (Jev) calls are logged in `llm_usage` with purpose `filter` and do not count toward this budget.

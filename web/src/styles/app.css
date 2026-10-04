@@ -1660,6 +1660,71 @@ button.shot:hover {
   border-color: var(--warn-line);
   box-shadow: inset 3px 0 0 var(--warn);
 }
+/* Left out by the relevance filter (or the reviewer): greyed, compact, restorable. */
+.ed-step--out {
+  background: var(--surface-2);
+  border-style: dashed;
+  color: var(--muted);
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.step__n--out {
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+}
+.ed-step__out-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+  overflow-wrap: anywhere;
+}
+.ed-step__why {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 4px 0 0;
+  font-size: var(--t-s);
+  color: var(--muted);
+}
+.ed-step__flag {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 6px;
+  padding: 8px 10px;
+  border-radius: var(--r-s);
+  background: var(--indigo-soft);
+  border: 1px solid var(--indigo-line);
+  font-size: var(--t-s);
+  color: var(--ink-2);
+}
+.ed-step__flag > span {
+  flex: 1 1 220px;
+}
+.filter-sum {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: var(--r-m);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: var(--t-s);
+}
+.filter-sum p {
+  flex: 1 1 260px;
+  margin: 0;
+}
 .ed-step.is-dragging {
   opacity: 0.4;
 }
@@ -2351,4 +2416,82 @@ button.shot:hover {
 .table td > .pill,
 .table td > .strip {
   justify-self: start;
+}
+
+/* Admin: step filter */
+.thresholds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+.thresholds input {
+  width: 6.5em;
+}
+.filter-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  margin: 8px 0 16px;
+}
+.table--compact caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 10px 12px 8px;
+  color: var(--ink-2);
+}
+.table--compact td,
+.table--compact th {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.table tr.is-current td {
+  background: var(--indigo-soft);
+  font-weight: 600;
+}
+.rec__drafts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+/* Small numeric tables stay tables on phones (overrides the card collapse above). */
+@media (max-width: 720px) {
+  .tablewrap:has(.table--compact) {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-m);
+    padding: 10px 12px;
+  }
+  .table.table--compact {
+    display: table;
+    width: 100%;
+  }
+  .table.table--compact thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    display: table-header-group;
+  }
+  .table.table--compact tbody {
+    display: table-row-group;
+  }
+  .table.table--compact tr {
+    display: table-row;
+    background: none;
+    border: 0;
+    margin: 0;
+    padding: 0;
+  }
+  .table.table--compact td {
+    display: table-cell;
+    padding: 6px 8px 6px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .table.table--compact td[data-label]::before {
+    content: none;
+  }
 }

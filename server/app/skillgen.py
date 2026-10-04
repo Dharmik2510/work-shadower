@@ -1,11 +1,14 @@
 """Event log -> skill content.
 
-Pipeline:
+Pipeline (orchestrated by jobs.generate_skill):
   1. deterministic cleanup (drop noise, merge typing bursts, collapse repeated clicks,
      de-dup app activations, fold window/url changes into the previous step's expectation)
-  2. ONE LLM call returning skill-content JSON, validated against `SkillContent`
-  3. on any LLM failure / budget exhaustion / disabled provider -> heuristic generator
-Either way the result is re-redacted and safety-checked (irreversible steps).
+  2. relevance filter (filtering.py): keep / review / drop per event, task segments
+  3. ONE LLM call per task segment returning skill-content JSON via a forced tool call,
+     validated against `SkillContent`. Dropped events still become steps, marked `excluded`
+     so a reviewer can restore them; they are removed on publish.
+  4. on any LLM failure / budget exhaustion / disabled provider -> heuristic generator
+Either way the result is re-redacted and safety-checked (irreversible steps are never excluded).
 """
 from __future__ import annotations
 
@@ -20,7 +23,7 @@ from urllib.parse import urlsplit
 from pydantic import ValidationError
 
 from .llm import LLMError, LLMProvider
-from .models import SkillContent
+from .models import SkillContent, StepFilter
 from .redact import redact_obj
 
 log = logging.getLogger("app.skillgen")
@@ -123,6 +126,7 @@ def cleanup(events: list[dict]) -> list[dict]:
             if prev is not None and prev.get("type") in ("click", "key", "type", "menu") \
                     and _app_name(prev) == app and _ts(ev) - _ts(prev) <= 8:
                 prev["_expect_url"] = ev.get("url")
+                prev.setdefault("_urls", []).append(ev.get("url"))  # the full trail (round trips)
                 if (ev.get("window") or {}).get("title"):
                     prev.setdefault("_expect_window", ev["window"]["title"])
                 continue
@@ -223,10 +227,17 @@ class _Builder:
     apps: list[str] = field(default_factory=list)
     secure_apps: list[str] = field(default_factory=list)
 
+    decisions: dict = field(default_factory=dict)
+
     def add(self, ev: dict | None, title: str, instruction: str, app: str | None, action: dict,
-            irreversible: bool = False) -> None:
+            irreversible: bool = False, source: dict | None = None) -> None:
         if app and app not in self.apps:
             self.apps.append(app)
+        src = ev or source
+        seqs = [src["seq"]] if src and src.get("seq") is not None else []
+        flt = _filter_for(seqs, self.decisions)
+        if flt and flt["decision"] == "drop" and irreversible:
+            flt = {**flt, "decision": "review"}
         self.steps.append({
             "index": len(self.steps) + 1,
             "title": title[:300],
@@ -236,7 +247,10 @@ class _Builder:
                        "key": action.get("key"), "url": action.get("url")},
             "expect": _expect(ev) if ev else None,
             "screenshot_sha256": (ev or {}).get("screenshot_sha256"),
-            "irreversible": irreversible,
+            "irreversible": irreversible or _p_irreversible(seqs, self.decisions),
+            "excluded": bool(flt and flt["decision"] == "drop"),
+            "filter": flt,
+            "source_seqs": seqs,
         })
 
     def input_for(self, ev: dict, label: str, text: str | None) -> str:
@@ -253,9 +267,43 @@ class _Builder:
         return name
 
 
-def heuristic_skill(events: list[dict], title_hint: str | None = None, *, cleaned: bool = False) -> dict:
+def _decision(decisions: dict, seq) -> dict | None:
+    d = decisions.get(seq) if decisions else None
+    if d is None:
+        return None
+    return d if isinstance(d, dict) else d.__dict__
+
+
+def _filter_for(seqs: list[int], decisions: dict) -> dict | None:
+    """Combine the decisions of the events a step came from: all dropped -> drop; any review
+    (or a mix of drop and keep) -> review; otherwise keep."""
+    ds = [d for d in (_decision(decisions, q) for q in seqs) if d]
+    if not ds:
+        return None
+    kinds = {d["decision"] for d in ds}
+    worst = max(ds, key=lambda d: d["p_drop"])
+    if kinds == {"drop"}:
+        decision = "drop"
+    elif "review" in kinds or ("drop" in kinds and "keep" in kinds):
+        decision = "review"
+    else:
+        decision = "keep"
+    return {"decision": decision, "reason": worst["reason"], "p_drop": round(float(worst["p_drop"]), 4),
+            "source": worst["source"]}
+
+
+def _p_irreversible(seqs: list[int], decisions: dict) -> bool:
+    for q in seqs:
+        d = _decision(decisions, q)
+        if d and (d.get("p_irreversible") or 0.0) >= 0.5:
+            return True
+    return False
+
+
+def heuristic_skill(events: list[dict], title_hint: str | None = None, *, cleaned: bool = False,
+                    intent: str | None = None, decisions: dict | None = None, use_intent_title: bool = True) -> dict:
     evs = events if cleaned else cleanup(events)
-    b = _Builder()
+    b = _Builder(decisions=decisions or {})
     current_app: str | None = None
     for ev in evs:
         t = ev.get("type")
@@ -263,7 +311,7 @@ def heuristic_skill(events: list[dict], title_hint: str | None = None, *, cleane
         win = (ev.get("window") or {}).get("title")
         if app and app != current_app:
             b.add(ev if t == "app_activate" else None, f"Open {app}", f"Open or switch to {app}.", app,
-                  {"type": "open_app", "target": None})
+                  {"type": "open_app", "target": None}, source=ev)
             current_app = app
         if t == "app_activate":
             continue
@@ -311,25 +359,51 @@ def heuristic_skill(events: list[dict], title_hint: str | None = None, *, cleane
             b.add(ev, f"Choose {path}", f"From the menu bar, choose {path}.", app,
                   {"type": "menu", "target": _target(ev)}, irr)
 
-    hint = (title_hint or "").strip()
-    # The Mac sends a generic "Workflow in <apps>" hint; a title from the steps reads better.
-    if not hint or _GENERIC_HINT.match(hint):
-        hint = _derive_title(b.steps, b.apps)
-    title = hint
-    goal = _derive_goal(b.steps, b.apps)
-    prereqs = [f"Access to {a}" for a in b.apps]
+    included = [s for s in b.steps if not s["excluded"]] or b.steps
+    apps = [a for a in b.apps if any(s["app"] == a for s in included)] or b.apps
+    title = pick_title(title_hint, intent if use_intent_title else None) or _derive_title(included, apps)
+    goal = _goal_from_intent(intent) or _derive_goal(included, apps)
+    prereqs = [f"Access to {a}" for a in apps]
     prereqs += [f"Your own sign-in credentials for {a}" for a in b.secure_apps]
-    tags = _derive_tags(title, b.apps)
+    tags = _derive_tags(title, apps)
     content = {
         "title": title[:200] or "Recorded workflow",
         "goal": goal,
-        "apps": b.apps,
+        "apps": apps,
         "prerequisites": prereqs,
         "inputs": list(b.inputs.values()),
         "steps": b.steps,
         "tags": tags,
     }
-    return SkillContent.model_validate(content).to_json()
+    return SkillContent.model_validate(redact_obj(content)).to_json()
+
+
+def is_generic_hint(hint: str | None) -> bool:
+    return not (hint or "").strip() or bool(_GENERIC_HINT.match(hint.strip()))
+
+
+def _title_from_intent(intent: str | None) -> str | None:
+    t = re.split(r"(?<=[.!?])\s|\n", (intent or "").strip(), maxsplit=1)[0].strip().rstrip(".!")
+    if len(t) < 4:
+        return None
+    if len(t) > 80:
+        t = t[:80].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+    return t[:1].upper() + t[1:]
+
+
+def pick_title(title_hint: str | None, intent: str | None) -> str | None:
+    """Author's own title > their stated intent > None (derive from steps)."""
+    if not is_generic_hint(title_hint):
+        return title_hint.strip()[:200]
+    return _title_from_intent(intent)
+
+
+def _goal_from_intent(intent: str | None) -> str | None:
+    t = (intent or "").strip()
+    if len(t) < 4:
+        return None
+    t = t[:1].upper() + t[1:]
+    return (t if t.endswith((".", "!", "?")) else t + ".")[:2000]
 
 
 def _join(items: list[str]) -> str:
@@ -397,7 +471,7 @@ def _derive_tags(title: str, apps: list[str]) -> list[str]:
 
 # ============================================================ LLM path
 SYSTEM_PROMPT = """You turn a cleaned macOS accessibility event log into a reusable, human-readable "skill" (how-to).
-Reply with ONE JSON object only (no prose, no code fences) with exactly this shape:
+Answer by calling the tool once. The skill JSON has this shape:
 {"title": str (imperative, <= 80 chars), "goal": str (one sentence),
  "apps": [str], "prerequisites": [str],
  "inputs": [{"name": snake_case str, "description": str, "example": str|null}],
@@ -406,18 +480,81 @@ Reply with ONE JSON object only (no prose, no code fences) with exactly this sha
                        "target": {"role": str|null, "label": str|null, "identifier": str|null, "path": [str], "window_title": str|null}|null,
                        "text": str|null, "key": str|null, "url": str|null},
             "expect": {"window_title_contains": str|null, "element_present": {"role": str|null, "label": str|null}|null}|null,
-            "screenshot_sha256": str|null, "irreversible": bool}],
+            "screenshot_sha256": str|null, "irreversible": bool,
+            "source_seqs": [int], "exclude": bool, "exclude_reason": str|null}],
  "tags": [str]}
 Rules:
-- One step per user action, in order. Merge nothing that changes meaning; drop nothing the user must do.
+- The author's stated goal (if given) is what the skill is for. Title and goal must reflect it.
+- One step per user action, in order. "source_seqs" lists the seq numbers of the events each step came from.
+- Every event becomes part of some step. Events marked "filter": "drop" are probably not part of the task:
+  still write their step, set "exclude": true and copy the filter reason into "exclude_reason".
+- If YOU are confident a step does not serve the goal (a side trip, an undone mistake, aimless looking around),
+  set "exclude": true with a short "exclude_reason". Never exclude a step needed to reach a later step.
+- Never exclude a step that submits, sends, deletes, pays, approves or publishes.
 - Copy target role/label/identifier/path/window_title and screenshot_sha256 verbatim from the event the step came from.
 - Values that would differ between runs (names, numbers, search terms) become inputs; reference them as {{input_name}} in "text" and "instruction".
 - Never output secrets or anything shown as [REDACTED:...]; for secure fields write an instruction asking the user to type their own value and set text to null.
 - Set irreversible=true for steps that submit, send, delete, pay, approve, publish or otherwise cannot be undone.
+- Title, goal, apps, prerequisites and tags describe only the steps that are NOT excluded.
 - Instructions are plain, friendly English a new employee can follow. Tags: 2-6 lowercase keywords."""
 
+_NULLABLE_STR = {"type": ["string", "null"]}
+_TARGET_SCHEMA = {
+    "type": ["object", "null"],
+    "properties": {"role": _NULLABLE_STR, "label": _NULLABLE_STR, "identifier": _NULLABLE_STR,
+                   "path": {"type": "array", "items": {"type": "string"}}, "window_title": _NULLABLE_STR},
+}
 
-def _compact(ev: dict) -> dict:
+
+def skill_tool_schema() -> dict:
+    """JSON schema for the forced tool call (structured output)."""
+    step = {
+        "type": "object",
+        "properties": {
+            "index": {"type": "integer"},
+            "title": {"type": "string"},
+            "instruction": {"type": "string"},
+            "app": _NULLABLE_STR,
+            "action": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "enum": ["open_app", "open_url", "click", "type", "key", "menu", "wait"]},
+                    "target": _TARGET_SCHEMA, "text": _NULLABLE_STR, "key": _NULLABLE_STR, "url": _NULLABLE_STR,
+                },
+                "required": ["type"],
+            },
+            "expect": {
+                "type": ["object", "null"],
+                "properties": {"window_title_contains": _NULLABLE_STR,
+                               "element_present": {"type": ["object", "null"],
+                                                   "properties": {"role": _NULLABLE_STR, "label": _NULLABLE_STR}}},
+            },
+            "screenshot_sha256": _NULLABLE_STR,
+            "irreversible": {"type": "boolean"},
+            "source_seqs": {"type": "array", "items": {"type": "integer"}},
+            "exclude": {"type": "boolean"},
+            "exclude_reason": _NULLABLE_STR,
+        },
+        "required": ["title", "instruction", "action", "irreversible", "source_seqs", "exclude"],
+    }
+    return {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "goal": {"type": "string"},
+            "apps": {"type": "array", "items": {"type": "string"}},
+            "prerequisites": {"type": "array", "items": {"type": "string"}},
+            "inputs": {"type": "array", "items": {"type": "object", "properties": {
+                "name": {"type": "string"}, "description": {"type": "string"}, "example": _NULLABLE_STR},
+                "required": ["name"]}},
+            "steps": {"type": "array", "items": step},
+            "tags": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["title", "goal", "apps", "steps", "tags"],
+    }
+
+
+def _compact(ev: dict, decision: dict | None = None) -> dict:
     el = _el(ev)
     out = {
         "seq": ev.get("seq"), "type": ev.get("type"), "app": _app_name(ev),
@@ -428,26 +565,42 @@ def _compact(ev: dict) -> dict:
         "then_window": ev.get("_expect_window"), "then_url": ev.get("_expect_url"),
         "clicks": ev.get("_count"), "screenshot_sha256": ev.get("screenshot_sha256"),
     }
+    if decision and decision.get("decision") in ("drop", "review"):
+        out["filter"] = decision["decision"]
+        out["filter_reason"] = decision.get("reason")
     return {k: v for k, v in out.items() if v not in (None, [], "")}
 
 
-def build_prompt(cleaned: list[dict], title_hint: str | None) -> str:
-    lines = "\n".join(json.dumps(_compact(e), ensure_ascii=False) for e in cleaned)
-    hint = f'The author titled this recording: "{title_hint}".\n' if title_hint else ""
-    return f"{hint}Event log ({len(cleaned)} events, one JSON per line):\n{lines}\n\nReturn the skill JSON now."
+def build_prompt(cleaned: list[dict], title_hint: str | None, intent: str | None = None,
+                 decisions: dict | None = None, part: tuple[int, int] | None = None) -> str:
+    lines = "\n".join(json.dumps(_compact(e, _decision(decisions or {}, e.get("seq"))), ensure_ascii=False)
+                      for e in cleaned)
+    head = ""
+    if intent and intent.strip():
+        head += f'The author says this recording is: "{intent.strip()[:1000]}".\n'
+    if not is_generic_hint(title_hint):
+        head += f'The author titled this recording: "{title_hint.strip()}".\n'
+    if part and part[1] > 1:
+        head += (f"The recording contained {part[1]} separate tasks; this is task {part[0]} of {part[1]}. "
+                 "Write the skill for THIS task only; title it for what these events do.\n")
+    return f"{head}Event log ({len(cleaned)} events, one JSON per line):\n{lines}\n\nReturn the skill now."
 
 
-def postprocess(content: dict, cleaned: list[dict]) -> dict:
+def postprocess(content: dict, cleaned: list[dict], decisions: dict | None = None) -> dict:
     """Validate, re-redact and safety-check LLM output. Raises ValueError if unusable."""
+    content = dict(content)
+    raw_steps = list(content.get("steps") or [])
     try:
         model = SkillContent.model_validate(redact_obj(content))
     except ValidationError as e:
         raise ValueError(f"schema validation failed: {e.error_count()} errors") from None
     if not model.steps:
         raise ValueError("model returned no steps")
+    decisions = decisions or {}
+    seqs_known = {e.get("seq") for e in cleaned}
     shas = {e.get("screenshot_sha256") for e in cleaned if e.get("screenshot_sha256")}
     secure_labels = {(_el(e).get("label") or "") for e in cleaned if _el(e).get("value_kind") == "secure"}
-    for s in model.steps:
+    for s, raw in zip(model.steps, raw_steps):
         if s.screenshot_sha256 and s.screenshot_sha256 not in shas:
             s.screenshot_sha256 = None
         label = s.action.target.label if s.action.target else None
@@ -455,7 +608,27 @@ def postprocess(content: dict, cleaned: list[dict]) -> dict:
             s.irreversible = True  # never let the model downgrade safety
         if s.action.type == "type" and label and label in secure_labels:
             s.action.text = None
-    return model.to_json()
+        s.source_seqs = [q for q in dict.fromkeys(s.source_seqs) if q in seqs_known]
+        s.irreversible = s.irreversible or _p_irreversible(s.source_seqs, decisions)
+        flt = _filter_for(s.source_seqs, decisions)
+        llm_excl = isinstance(raw, dict) and raw.get("exclude") is True
+        if llm_excl and (flt is None or flt["decision"] == "keep"):
+            # the model alone never auto-drops: it flags for review
+            reason = str(raw.get("exclude_reason") or "not needed for the goal")[:200]
+            flt = {"decision": "review", "reason": reason, "p_drop": max(flt["p_drop"] if flt else 0.0, 0.6),
+                   "source": "llm"}
+        if flt and flt["decision"] == "drop" and s.irreversible:
+            flt = {**flt, "decision": "review"}
+        s.filter = StepFilter.model_validate(flt) if flt else None
+        s.excluded = bool(flt and flt["decision"] == "drop")
+    out = model.to_json()
+    included = [s for s in out["steps"] if not s["excluded"]]
+    if not included:
+        raise ValueError("every step was excluded")
+    used_apps = {s["app"] for s in included if s.get("app")}
+    out["apps"] = [a for a in out["apps"] if a in used_apps] or [a for a in dict.fromkeys(
+        s["app"] for s in included if s.get("app"))]
+    return SkillContent.model_validate(out).to_json()
 
 
 @dataclass
@@ -468,6 +641,22 @@ class GenResult:
 UsageCallback = Callable[[int, int, bool], None]
 
 
+def llm_request(cleaned: list[dict], title_hint: str | None, intent: str | None = None,
+                decisions: dict | None = None, part: tuple[int, int] | None = None) -> tuple[str, str, dict]:
+    return SYSTEM_PROMPT, build_prompt(cleaned, title_hint, intent, decisions, part), skill_tool_schema()
+
+
+def from_llm_output(data: dict, cleaned: list[dict], title_hint: str | None, intent: str | None = None,
+                    decisions: dict | None = None, use_intent_title: bool = True) -> dict:
+    content = postprocess(data, cleaned, decisions)
+    forced = pick_title(title_hint, None)  # an explicit (non-generic) author title always wins
+    if forced:
+        content["title"] = forced
+    if use_intent_title and intent and not (content.get("goal") or "").strip():
+        content["goal"] = _goal_from_intent(intent) or ""
+    return content
+
+
 def generate(
     events: list[dict],
     title_hint: str | None,
@@ -475,17 +664,22 @@ def generate(
     *,
     allow_llm: bool = True,
     on_usage: UsageCallback | None = None,
+    intent: str | None = None,
+    decisions: dict | None = None,
+    cleaned: bool = False,
+    part: tuple[int, int] | None = None,
 ) -> GenResult:
-    cleaned = cleanup(events)
+    evs = events if cleaned else cleanup(events)
+    whole = not part or part[1] <= 1
+    hint = title_hint if whole else None
     error: str | None = None
-    if llm is not None and llm.enabled and allow_llm and 0 < len(cleaned) <= MAX_LLM_EVENTS:
+    if llm is not None and llm.enabled and allow_llm and 0 < len(evs) <= MAX_LLM_EVENTS:
         try:
-            res = llm.complete_json(SYSTEM_PROMPT, build_prompt(cleaned, title_hint))
+            system, prompt, schema = llm_request(evs, hint, intent, decisions, part)
+            res = llm.complete_json(system, prompt, schema=schema)
             if on_usage:
                 on_usage(res.input_tokens, res.output_tokens, True)
-            content = postprocess(res.data, cleaned)
-            if title_hint and title_hint.strip():
-                content["title"] = title_hint.strip()[:200]
+            content = from_llm_output(res.data, evs, hint, intent, decisions, use_intent_title=whole)
             return GenResult(content, "llm")
         except LLMError as e:
             if on_usage:
@@ -496,4 +690,6 @@ def generate(
         log.warning("llm skillgen failed, using heuristic", extra={"error": error})
     elif llm is not None and llm.enabled and not allow_llm:
         error = "llm not allowed (budget or flag)"
-    return GenResult(heuristic_skill(cleaned, title_hint, cleaned=True), "heuristic", error)
+    content = heuristic_skill(evs, hint, cleaned=True, intent=intent if whole else None, decisions=decisions,
+                              use_intent_title=whole)
+    return GenResult(content, "heuristic", error)

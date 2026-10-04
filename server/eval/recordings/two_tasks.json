@@ -1,0 +1,295 @@
+{
+ "name": "two_tasks",
+ "intent": null,
+ "events": [
+  {
+   "seq": 1,
+   "ts": "2026-10-03T14:00:00Z",
+   "type": "app_activate",
+   "app": {
+    "bundle_id": "com.microsoft.Excel",
+    "name": "Microsoft Excel"
+   },
+   "window": {
+    "title": "Q3 Losses.xlsx"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 2,
+   "ts": "2026-10-03T14:00:03Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.microsoft.Excel",
+    "name": "Microsoft Excel"
+   },
+   "window": {
+    "title": "Q3 Losses.xlsx"
+   },
+   "element": {
+    "role": "AXCell",
+    "subrole": null,
+    "label": "B2",
+    "identifier": "B2",
+    "path": [
+     "AXWindow:Q3 Losses.xlsx",
+     "AXGroup",
+     "AXCell:B2"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 3,
+   "ts": "2026-10-03T14:00:05Z",
+   "type": "type",
+   "app": {
+    "bundle_id": "com.microsoft.Excel",
+    "name": "Microsoft Excel"
+   },
+   "window": {
+    "title": "Q3 Losses.xlsx"
+   },
+   "element": {
+    "role": "AXCell",
+    "subrole": null,
+    "label": "B2",
+    "identifier": "B2",
+    "path": [
+     "AXWindow:Q3 Losses.xlsx",
+     "AXGroup",
+     "AXCell:B2"
+    ],
+    "value_kind": "text"
+   },
+   "text": "1250",
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 4,
+   "ts": "2026-10-03T14:00:08Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.microsoft.Excel",
+    "name": "Microsoft Excel"
+   },
+   "window": {
+    "title": "Q3 Losses.xlsx"
+   },
+   "element": {
+    "role": "AXCell",
+    "subrole": null,
+    "label": "B3",
+    "identifier": "B3",
+    "path": [
+     "AXWindow:Q3 Losses.xlsx",
+     "AXGroup",
+     "AXCell:B3"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 5,
+   "ts": "2026-10-03T14:00:10Z",
+   "type": "type",
+   "app": {
+    "bundle_id": "com.microsoft.Excel",
+    "name": "Microsoft Excel"
+   },
+   "window": {
+    "title": "Q3 Losses.xlsx"
+   },
+   "element": {
+    "role": "AXCell",
+    "subrole": null,
+    "label": "B3",
+    "identifier": "B3",
+    "path": [
+     "AXWindow:Q3 Losses.xlsx",
+     "AXGroup",
+     "AXCell:B3"
+    ],
+    "value_kind": "text"
+   },
+   "text": "980",
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 6,
+   "ts": "2026-10-03T14:00:13Z",
+   "type": "key",
+   "app": {
+    "bundle_id": "com.microsoft.Excel",
+    "name": "Microsoft Excel"
+   },
+   "window": {
+    "title": "Q3 Losses.xlsx"
+   },
+   "element": null,
+   "text": null,
+   "key": "cmd+s",
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 7,
+   "ts": "2026-10-03T14:06:40Z",
+   "type": "app_activate",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Inbox"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 8,
+   "ts": "2026-10-03T14:06:43Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Inbox"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "New Meeting",
+    "identifier": "newMeeting",
+    "path": [
+     "AXWindow:Inbox",
+     "AXGroup",
+     "AXButton:New Meeting"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 9,
+   "ts": "2026-10-03T14:06:46Z",
+   "type": "type",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Meeting"
+   },
+   "element": {
+    "role": "AXTextField",
+    "subrole": null,
+    "label": "Title",
+    "identifier": "title",
+    "path": [
+     "AXWindow:Meeting",
+     "AXGroup",
+     "AXTextField:Title"
+    ],
+    "value_kind": "text"
+   },
+   "text": "Q3 review",
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 10,
+   "ts": "2026-10-03T14:06:50Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Meeting"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Add Room",
+    "identifier": "room",
+    "path": [
+     "AXWindow:Meeting",
+     "AXGroup",
+     "AXButton:Add Room"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 11,
+   "ts": "2026-10-03T14:06:54Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.microsoft.Outlook",
+    "name": "Microsoft Outlook"
+   },
+   "window": {
+    "title": "Meeting"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Send",
+    "identifier": "send",
+    "path": [
+     "AXWindow:Meeting",
+     "AXGroup",
+     "AXButton:Send"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  }
+ ],
+ "labels": {
+  "1": "keep",
+  "2": "keep",
+  "3": "keep",
+  "4": "keep",
+  "5": "keep",
+  "6": "keep",
+  "7": "keep",
+  "8": "keep",
+  "9": "keep",
+  "10": "keep",
+  "11": "keep"
+ },
+ "expected_segments": 2
+}

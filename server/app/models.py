@@ -45,6 +45,18 @@ class Action(_Loose):
     url: str | None = None
 
 
+FilterDecision = Literal["keep", "review", "drop"]
+
+
+class StepFilter(_Loose):
+    """Why the relevance filter thinks a step may not be needed (shown to reviewers)."""
+
+    decision: FilterDecision = "keep"
+    reason: str = Field(default="on_task", max_length=200)
+    p_drop: float = Field(default=0.0, ge=0, le=1)
+    source: str = Field(default="local", max_length=40)
+
+
 class Step(_Loose):
     index: int = 0
     title: str = Field(min_length=1, max_length=300)
@@ -54,6 +66,11 @@ class Step(_Loose):
     expect: Expect | None = None
     screenshot_sha256: str | None = Field(default=None, pattern=_SHA_RE)
     irreversible: bool = False
+    # Relevance filtering. Excluded steps stay in the draft (greyed out, restorable) and are
+    # removed when the skill is published. `source_seqs` ties a step back to recorded events.
+    excluded: bool = False
+    filter: StepFilter | None = None
+    source_seqs: list[int] = Field(default_factory=list, max_length=200)
 
 
 class SkillInput(_Loose):
@@ -126,6 +143,7 @@ class ClientInfo(_Loose):
 
 class RecordingCreate(_Loose):
     title_hint: str | None = Field(default=None, max_length=300)
+    intent: str | None = Field(default=None, max_length=1000)  # "What did you just do?" answer
     started_at: datetime
     ended_at: datetime
     client: ClientInfo = Field(default_factory=ClientInfo)
@@ -207,3 +225,7 @@ class FlagsUpdate(BaseModel):
     llm_enabled: bool | None = None
     max_recording_minutes: int | None = Field(default=None, gt=0, le=24 * 60)
     screenshot_policy: Literal["key_moments", "none"] | None = None
+    filter_enabled: bool | None = None
+    filter_drop_threshold: float | None = Field(default=None, gt=0, le=1)
+    filter_review_threshold: float | None = Field(default=None, gt=0, le=1)
+    split_tasks_enabled: bool | None = None

@@ -99,12 +99,17 @@ public final class UploadQueue {
 
     // MARK: Public API
 
-    public func enqueueRecording(idempotencyKey: String, payload: Data, assets: [QueuedAsset], now: Date = Date()) throws {
+    /// `holdUntil` keeps a saved recording from uploading until then (or until `release`), e.g. while
+    /// the person is still answering "What did you just do?". It is durable either way: if the app quits
+    /// during the hold, the recording uploads (without the answer) once the hold expires.
+    public func enqueueRecording(idempotencyKey: String, payload: Data, assets: [QueuedAsset], now: Date = Date(),
+                                 holdUntil: Date? = nil) throws {
         try lock.sync {
             try execUnlocked("BEGIN IMMEDIATE;")
             do {
-                try run("INSERT OR IGNORE INTO recordings (idem_key, payload, created_at) VALUES (?, ?, ?);",
-                        [.text(idempotencyKey), .blob(payload), .double(now.timeIntervalSince1970)])
+                try run("INSERT OR IGNORE INTO recordings (idem_key, payload, created_at, next_attempt_at) VALUES (?, ?, ?, ?);",
+                        [.text(idempotencyKey), .blob(payload), .double(now.timeIntervalSince1970),
+                         .double(holdUntil?.timeIntervalSince1970 ?? 0)])
                 for a in assets {
                     try run("INSERT OR IGNORE INTO assets (sha256, recording_key, path, content_type, bytes) VALUES (?, ?, ?, ?, ?);",
                             [.text(a.sha256), .text(idempotencyKey), .text(a.path), .text(a.contentType), .int(a.bytes)])
@@ -114,6 +119,34 @@ public final class UploadQueue {
                 try? execUnlocked("ROLLBACK;")
                 throw error
             }
+        }
+    }
+
+    /// Replaces the payload of a recording that has not been uploaded yet (attempts == 0).
+    /// Returns false if it is gone or an upload already started.
+    @discardableResult
+    public func updatePayload(idempotencyKey: String, payload: Data) throws -> Bool {
+        return try lock.sync {
+            try run("UPDATE recordings SET payload = ? WHERE idem_key = ? AND state = 'pending' AND attempts = 0;",
+                    [.blob(payload), .text(idempotencyKey)])
+            return sqlite3_changes(db) > 0
+        }
+    }
+
+    /// Ends a hold: the recording becomes due now.
+    public func release(idempotencyKey: String) throws {
+        try lock.sync {
+            try run("UPDATE recordings SET next_attempt_at = 0 WHERE idem_key = ? AND state = 'pending' AND attempts = 0;",
+                    [.text(idempotencyKey)])
+        }
+    }
+
+    /// Payload of a queued recording, if still queued.
+    public func payload(idempotencyKey: String) throws -> Data? {
+        return try lock.sync {
+            try query("SELECT payload FROM recordings WHERE idem_key = ?;", [.text(idempotencyKey)]) { stmt in
+                columnBlob(stmt, 0)
+            }.first
         }
     }
 

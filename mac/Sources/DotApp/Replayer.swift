@@ -84,7 +84,7 @@ final class Replayer {
         let m = hud.model
         m.control.reset()
         m.skillTitle = skill.content.title
-        m.stepCount = skill.content.steps.count
+        m.stepCount = skill.content.runnableSteps.count
         m.stepNumber = 0
         m.stepTitle = ""
         m.instruction = ""
@@ -118,11 +118,11 @@ final class Replayer {
         var outcome: RunOutcome = .succeeded
         var errorText: String?
 
-        for raw in skill.content.steps {
+        for (n, raw) in skill.content.runnableSteps.enumerated() {
             if m.control.stopped { outcome = .aborted; break }
             let step = Template.fill(step: raw, with: values)
             onMain {
-                m.stepNumber = step.index
+                m.stepNumber = n + 1
                 m.stepTitle = step.title
                 m.instruction = step.instruction
                 m.phase = .working("Working…")

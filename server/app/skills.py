@@ -273,9 +273,11 @@ def update_draft(conn: psycopg.Connection, row: dict, patch_fields: dict, user: 
 def publish(conn: psycopg.Connection, row: dict, user: CurrentUser, *, embeddings: bool) -> int:
     if row["draft"] is None:
         raise ApiError(409, "no_draft", "nothing to publish: the skill has no draft")
-    content = SkillContent.model_validate(row["draft"]).to_json()
+    draft = SkillContent.model_validate(row["draft"]).to_json()
+    content = published_content(draft)
     if not content["steps"]:
-        raise ApiError(422, "skill_has_no_steps", "a skill needs at least one step to be published")
+        raise ApiError(422, "skill_has_no_steps", "a skill needs at least one step to be published"
+                       + (" (every step is excluded)" if draft["steps"] else ""))
     if row["visibility"] == "team" and not row["team_id"]:
         raise ApiError(422, "team_required", "visibility 'team' requires a team_id")
     version = (row["current_version"] or 0) + 1
@@ -293,12 +295,30 @@ def publish(conn: psycopg.Connection, row: dict, user: CurrentUser, *, embedding
            WHERE id = %(id)s""",
         {"v": version, "c": psycopg.types.json.Jsonb(content), "shas": shas, "id": row["id"]},
     )
+    record_review(conn, str(row["id"]), version, content)
     if embeddings:
         from .jobs import enqueue
 
         enqueue(conn, "embed_skill", {"skill_id": str(row["id"]), "version": version})
     return version
 
+
+def published_content(draft: dict) -> dict:
+    """What gets published: excluded steps removed, filter annotations dropped."""
+    steps = [{**s, "filter": None, "excluded": False} for s in draft.get("steps") or [] if not s.get("excluded")]
+    return SkillContent.model_validate({**draft, "steps": steps}).to_json()
+
+
+def record_review(conn: psycopg.Connection, skill_id: str, version: int, content: dict) -> None:
+    """Reviewer feedback for the relevance filter: an event is 'kept' iff a published step came from it.
+    Events whose steps were excluded or deleted count as dropped."""
+    kept = sorted({q for s in content.get("steps") or [] for q in s.get("source_seqs") or []})
+    conn.execute(
+        """UPDATE filter_decisions SET final_keep = (seq = ANY(%s::int[])), reviewed_version = %s,
+                  reviewed_at = now()
+           WHERE skill_id = %s""",
+        (kept, version, skill_id),
+    )
 
 def embedding_text(content: dict) -> str:
     parts = [content.get("title", ""), content.get("goal", ""), " ".join(content.get("tags", [])),

@@ -1,0 +1,215 @@
+{
+ "name": "explore_then_work",
+ "intent": "Assigned a claim to myself",
+ "events": [
+  {
+   "seq": 1,
+   "ts": "2026-10-03T14:00:00Z",
+   "type": "app_activate",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "ClaimCenter"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 2,
+   "ts": "2026-10-03T14:00:02Z",
+   "type": "url_change",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "ClaimCenter"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": "https://cc.example.com/cc/Claims.do",
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 3,
+   "ts": "2026-10-03T14:00:05Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "ClaimCenter"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Filters",
+    "identifier": "filters",
+    "path": [
+     "AXWindow:ClaimCenter",
+     "AXGroup",
+     "AXButton:Filters"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 4,
+   "ts": "2026-10-03T14:00:07Z",
+   "type": "key",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "ClaimCenter"
+   },
+   "element": null,
+   "text": null,
+   "key": "escape",
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 5,
+   "ts": "2026-10-03T14:00:09Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "ClaimCenter"
+   },
+   "element": {
+    "role": "AXLink",
+    "subrole": null,
+    "label": "Help",
+    "identifier": "help",
+    "path": [
+     "AXWindow:ClaimCenter",
+     "AXGroup",
+     "AXLink:Help"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 6,
+   "ts": "2026-10-03T14:00:10Z",
+   "type": "url_change",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "Help"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": "https://cc.example.com/cc/Help.do",
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 7,
+   "ts": "2026-10-03T14:00:15Z",
+   "type": "url_change",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "ClaimCenter"
+   },
+   "element": null,
+   "text": null,
+   "key": null,
+   "url": "https://cc.example.com/cc/Claims.do",
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 8,
+   "ts": "2026-10-03T14:00:18Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "ClaimCenter"
+   },
+   "element": {
+    "role": "AXRow",
+    "subrole": null,
+    "label": "Claim 000-12-3344",
+    "identifier": "row1",
+    "path": [
+     "AXWindow:ClaimCenter",
+     "AXGroup",
+     "AXRow:Claim 000-12-3344"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  },
+  {
+   "seq": 9,
+   "ts": "2026-10-03T14:00:22Z",
+   "type": "click",
+   "app": {
+    "bundle_id": "com.google.Chrome",
+    "name": "Google Chrome"
+   },
+   "window": {
+    "title": "ClaimCenter"
+   },
+   "element": {
+    "role": "AXButton",
+    "subrole": null,
+    "label": "Assign to Me",
+    "identifier": "assign",
+    "path": [
+     "AXWindow:ClaimCenter",
+     "AXGroup",
+     "AXButton:Assign to Me"
+    ],
+    "value_kind": "none"
+   },
+   "text": null,
+   "key": null,
+   "url": null,
+   "screenshot_sha256": null
+  }
+ ],
+ "labels": {
+  "1": "keep",
+  "2": "keep",
+  "3": "drop",
+  "4": "drop",
+  "5": "drop",
+  "6": "drop",
+  "7": "drop",
+  "8": "keep",
+  "9": "keep"
+ },
+ "expected_segments": 1
+}

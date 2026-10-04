@@ -133,13 +133,17 @@ public struct ClientInfo: Codable, Equatable {
 /// Body of `POST /recordings`.
 public struct RecordingPayload: Codable, Equatable {
     public var titleHint: String?
+    /// The author's answer to "What did you just do?" (redacted on device). Optional.
+    public var intent: String?
     public var startedAt: Date
     public var endedAt: Date
     public var client: ClientInfo
     public var events: [RecordedEvent]
 
-    public init(titleHint: String?, startedAt: Date, endedAt: Date, client: ClientInfo, events: [RecordedEvent]) {
+    public init(titleHint: String?, startedAt: Date, endedAt: Date, client: ClientInfo, events: [RecordedEvent],
+                intent: String? = nil) {
         self.titleHint = titleHint
+        self.intent = intent
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.client = client
@@ -148,9 +152,17 @@ public struct RecordingPayload: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case titleHint = "title_hint"
+        case intent
         case startedAt = "started_at"
         case endedAt = "ended_at"
         case client, events
+    }
+
+    /// Normalises and redacts a typed intent; nil when empty. Capped at 1000 characters (server limit).
+    public static func cleanIntent(_ raw: String?) -> String? {
+        let collapsed = (raw ?? "").split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        guard !collapsed.isEmpty else { return nil }
+        return String(Redactor.shared.redact(String(collapsed.prefix(1000))).text.prefix(1000))
     }
 
     /// Screenshot hashes referenced by events (deduplicated, in order).

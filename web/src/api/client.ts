@@ -3,6 +3,7 @@ import type {
   CreateSkillRequest,
   DevLoginRequest,
   DevLoginResponse,
+  FilterStats,
   Flags,
   ID,
   Job,
@@ -82,6 +83,8 @@ export interface ApiClient {
   getAdminFlags(): Promise<Flags>;
   putAdminFlags(flags: Flags): Promise<Flags>;
   usage(days?: number): Promise<Usage>;
+  filterStats(days?: number): Promise<FilterStats>;
+  filterExport(days?: number): Promise<Blob>;
   deadJobs(): Promise<{ items: Job[] }>;
   retryJob(id: ID): Promise<unknown>;
 }
@@ -232,6 +235,13 @@ export class HttpApiClient implements ApiClient {
   }
   usage(days = 30) {
     return this.json<Usage>("GET", "/admin/usage", { query: { days } });
+  }
+  filterStats(days = 30) {
+    return this.json<FilterStats>("GET", "/admin/filter/stats", { query: { days } });
+  }
+  async filterExport(days = 90) {
+    const res = await this.raw("GET", `/admin/filter/export?days=${days}`, { headers: { Accept: "application/x-ndjson" } });
+    return res.blob();
   }
   async deadJobs() {
     // Contract doesn't say whether this is paged or a bare array; accept both.

@@ -57,6 +57,34 @@ class Settings(BaseSettings):
     embed_model: str = "text-embedding-3-small"
     embed_api_key: str = ""  # falls back to llm_api_key
     embed_base_url: str = ""  # falls back to https://api.openai.com/v1
+    llm_retry_base_seconds: float = 1.0
+    llm_max_retries: int = 3  # retries on 429 / 5xx / transport errors, exponential backoff + jitter
+    llm_prompt_caching: bool = True  # Anthropic: cache the (large, static) system prompt + tool schema
+
+    # Relevance filter (keep / review / drop each recorded event)
+    # FILTER_PROVIDER: jev (TypeSafe System One model, with local fallback) | local (rules only)
+    filter_provider: Literal["jev", "local"] = "local"
+    jev_api_key: str = ""
+    jev_base_url: str = "https://api.typesafe.ai"
+    jev_model: str = "jev-latest"
+    jev_timeout_seconds: float = 5.0
+    jev_max_retries: int = 2
+    jev_retry_base_seconds: float = 0.25
+    jev_concurrency: int = 8  # parallel Jev calls per recording
+    jev_max_events: int = 600  # events beyond this use the local filter only
+    jev_context_events: int = 4  # neighbours on each side sent with every event
+    jev_input_cost_per_mtok: float = 0.042
+    jev_breaker_failures: int = 5  # consecutive failures that open the circuit breaker
+    jev_breaker_cooldown_seconds: float = 60.0
+    jev_task_types: str = ""  # optional comma list, e.g. "claims,underwriting,billing" -> tags
+    filter_split_threshold: float = 0.85  # P(new task starts here) needed to split a recording
+    filter_min_segment_steps: int = 3
+
+    # Anthropic Message Batches: ~50% cheaper skill generation, results usually within minutes
+    # (up to 24h). Drafts appear later; the heuristic draft is used if the batch fails or expires.
+    llm_batch_mode: bool = False
+    llm_batch_poll_seconds: float = 60.0
+    llm_batch_max_hours: float = 24.0
 
     # Jobs / worker
     job_max_attempts: int = 5

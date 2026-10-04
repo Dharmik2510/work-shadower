@@ -10,7 +10,7 @@ def calls_today(conn: psycopg.Connection, user_id: str | None) -> int:
     if not user_id:
         return 0
     row = conn.execute(
-        "SELECT count(*) AS n FROM llm_usage WHERE user_id = %s "
+        "SELECT count(*) AS n FROM llm_usage WHERE user_id = %s AND purpose <> 'filter' "
         "AND created_at >= date_trunc('day', now() AT TIME ZONE 'utc') AT TIME ZONE 'utc'",
         (user_id,),
     ).fetchone()

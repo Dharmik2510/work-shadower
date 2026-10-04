@@ -6,14 +6,16 @@ import {
   ArrowUp,
   Eye,
   EyeOff,
+  CircleSlash,
   GripVertical,
   Plus,
+  RotateCcw,
   ShieldAlert,
   Trash2,
   Upload,
   X,
 } from "lucide-react";
-import { api, ApiError, type Skill, type SkillContent, type SkillStep, type TeamRef, type Visibility } from "../api";
+import { api, ApiError, type Skill, type SkillContent, type SkillStep, type StepFilter, type TeamRef, type Visibility } from "../api";
 import { useUser } from "../auth/AuthContext";
 import { AuthImage } from "../components/AuthImage";
 import { ErrorNote, SkillStatusPill, Spinner } from "../components/bits";
@@ -65,8 +67,10 @@ function validate(d: Draft, forPublish: boolean): string[] {
   const errs: string[] = [];
   if (!d.content.title.trim()) errs.push("Give the skill a title.");
   if (forPublish && !d.content.goal.trim()) errs.push("Add a one-sentence goal so people know what this does.");
+  const included = d.steps.filter((s) => !s.excluded);
   if (forPublish && d.steps.length === 0) errs.push("Add at least one step.");
-  if (forPublish && d.steps.some((s) => !s.title.trim())) errs.push("Every step needs a title.");
+  else if (forPublish && included.length === 0) errs.push("Every step is left out. Put back at least one step.");
+  if (forPublish && included.some((s) => !s.title.trim())) errs.push("Every step needs a title.");
   const names = d.content.inputs.map((i) => i.name.trim()).filter(Boolean);
   const bad = names.filter((n) => !INPUT_NAME.test(n));
   if (bad.length) errs.push(`Input names use lowercase letters, numbers and underscores: ${bad.join(", ")}.`);
@@ -74,7 +78,7 @@ function validate(d: Draft, forPublish: boolean): string[] {
   if (d.visibility === "team" && !d.team_id) errs.push("Pick the team to share with.");
   const known = new Set(names);
   const unknown = new Set<string>();
-  for (const s of d.steps) for (const m of `${s.instruction} ${s.action?.text ?? ""}`.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)) if (!known.has(m[1]!)) unknown.add(m[1]!);
+  for (const s of included) for (const m of `${s.instruction} ${s.action?.text ?? ""}`.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)) if (!known.has(m[1]!)) unknown.add(m[1]!);
   if (unknown.size) errs.push(`Steps refer to inputs that don't exist: ${[...unknown].join(", ")}.`);
   return errs;
 }
@@ -114,6 +118,7 @@ function Editor({ skill, initial, teams, onSaved }: { skill: Skill | null; initi
   const [errors, setErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState<Error | null>(null);
   const [focusStep, setFocusStep] = useState<number | null>(null);
+  const [showLeftOut, setShowLeftOut] = useState(true);
   const bypass = useRef(false);
 
   const snapshot = JSON.stringify(fromDraft(d)) + d.visibility + d.team_id;
@@ -220,7 +225,7 @@ function Editor({ skill, initial, teams, onSaved }: { skill: Skill | null; initi
 
       {skill?.source_recording_id && !skill.published && (
         <p className="editor__intro">
-          The dot wrote this draft from your recording. Check each step reads clearly for someone who has never done it, swap typed values for inputs, and hide any screenshot that shows customer details.
+          The dot wrote this draft from your recording. Check each step reads clearly for someone who has never done it, swap typed values for inputs, and hide any screenshot that shows customer details. Steps the dot thinks weren't part of the task are greyed out and won't be published unless you put them back.
         </p>
       )}
 
@@ -320,8 +325,17 @@ function Editor({ skill, initial, teams, onSaved }: { skill: Skill | null; initi
         </button>
       </Section>
 
-      <Section title={`Steps`} count={d.steps.length} hint="Drag to reorder, or use the arrows.">
-        <StepList d={d} inputNames={inputNames} setStep={setStep} moveStep={moveStep} focusStep={focusStep} remove={(i) => setD((x) => ({ ...x, steps: x.steps.filter((_, j) => j !== i) }))} />
+      <Section title={`Steps`} count={d.steps.filter((x) => !x.excluded).length} hint="Drag to reorder, or use the arrows.">
+        <FilterSummary steps={d.steps} showLeftOut={showLeftOut} setShowLeftOut={setShowLeftOut} />
+        <StepList
+          d={d}
+          inputNames={inputNames}
+          setStep={setStep}
+          moveStep={moveStep}
+          focusStep={focusStep}
+          showLeftOut={showLeftOut}
+          remove={(i) => setD((x) => ({ ...x, steps: x.steps.filter((_, j) => j !== i) }))}
+        />
         <button
           className="btn btn--ghost btn--sm"
           onClick={() => {
@@ -360,6 +374,7 @@ function StepList({
   moveStep,
   remove,
   focusStep,
+  showLeftOut,
 }: {
   d: Draft;
   inputNames: string[];
@@ -367,6 +382,7 @@ function StepList({
   moveStep(a: number, b: number): void;
   remove(i: number): void;
   focusStep: number | null;
+  showLeftOut: boolean;
 }) {
   const [drag, setDrag] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
@@ -400,11 +416,46 @@ function StepList({
 
   if (d.steps.length === 0) return <p className="muted">No steps yet. Add the first thing someone should do.</p>;
 
+  let n = 0;
+  const numbers = d.steps.map((s) => (s.excluded ? null : ++n));
+
   return (
     <ol className="ed-steps">
       {d.steps.map((s, i) => {
         const shot = s.screenshot_sha256 ?? s._hiddenShot ?? null;
         const hidden = !s.screenshot_sha256 && !!s._hiddenShot;
+        if (s.excluded) {
+          if (!showLeftOut) return null;
+          return (
+            <li key={s._key} className="ed-step ed-step--out">
+              <div className="ed-step__rail">
+                <span className="step__n step__n--out" aria-hidden>
+                  –
+                </span>
+              </div>
+              <div className="ed-step__body">
+                <div className="ed-step__top">
+                  <p className="ed-step__out-title">
+                    <span className="sr-only">Left out: </span>
+                    {s.title || "Untitled step"}
+                    {s.app && <span className="muted"> · {s.app}</span>}
+                  </p>
+                  <button className="btn btn--quiet btn--sm" onClick={() => setStep(i, { excluded: false, filter: s.filter ? { ...s.filter, decision: "keep" } : s.filter })}>
+                    <RotateCcw size={15} aria-hidden /> Put back
+                  </button>
+                  <button className="icon-btn" aria-label={`Delete left-out step “${s.title}”`} onClick={() => remove(i)}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                <p className="ed-step__why">
+                  <CircleSlash size={14} aria-hidden /> Left out: {reasonText(s.filter)}
+                  {s.filter && s.filter.source !== "human" && <span className="muted"> · {Math.round(s.filter.p_drop * 100)}% likely</span>}
+                </p>
+              </div>
+            </li>
+          );
+        }
+        const review = s.filter?.decision === "review";
         return (
           <li
             key={s._key}
@@ -439,7 +490,7 @@ function StepList({
               >
                 <GripVertical size={16} />
               </span>
-              <span className="step__n">{i + 1}</span>
+              <span className="step__n">{numbers[i]}</span>
               <button className="icon-btn icon-btn--sm" aria-label={`Move step ${i + 1} up`} disabled={i === 0} onClick={() => moveStep(i, i - 1)}>
                 <ArrowUp size={15} />
               </button>
@@ -457,10 +508,36 @@ function StepList({
                   placeholder="Short step title"
                   onChange={(e) => setStep(i, { title: e.target.value })}
                 />
-                <button className="icon-btn" aria-label={`Delete step ${i + 1}`} onClick={() => remove(i)}>
+                <button
+                  className="icon-btn"
+                  aria-label={`Leave step ${numbers[i]} out of the skill`}
+                  title="Leave out (keeps it here, greyed, in case you change your mind)"
+                  onClick={() =>
+                    setStep(i, {
+                      excluded: true,
+                      filter: s.filter?.decision === "review" ? s.filter : { decision: "drop", reason: "removed_by_reviewer", p_drop: 1, source: "human" },
+                    })
+                  }
+                >
+                  <CircleSlash size={16} />
+                </button>
+                <button className="icon-btn" aria-label={`Delete step ${numbers[i]}`} onClick={() => remove(i)}>
                   <Trash2 size={16} />
                 </button>
               </div>
+              {review && (
+                <div className="ed-step__flag" role="note">
+                  <span>
+                    <strong>Might not be needed.</strong> {reasonText(s.filter)}
+                  </span>
+                  <button className="btn btn--ghost btn--sm" onClick={() => setStep(i, { excluded: true })}>
+                    Leave out
+                  </button>
+                  <button className="btn btn--ghost btn--sm" onClick={() => setStep(i, { filter: { ...s.filter!, decision: "keep" } })}>
+                    It's needed
+                  </button>
+                </div>
+              )}
               <textarea
                 ref={(el) => (textRefs.current[s._key] = el)}
                 aria-label={`Step ${i + 1} instruction`}
@@ -517,6 +594,41 @@ function StepList({
         );
       })}
     </ol>
+  );
+}
+
+const REASONS: Record<string, string> = {
+  detour: "Looks like a side trip to another app.",
+  mistake_undone: "It was undone right after.",
+  exploration: "Opened and closed without being used.",
+  duplicate: "Repeats an earlier step.",
+  idle_or_noise: "Looks accidental.",
+  unclear_relevance: "May not be part of this task.",
+  removed_by_reviewer: "You left this out.",
+};
+
+function reasonText(f?: StepFilter | null): string {
+  if (!f) return "You left this out.";
+  return REASONS[f.reason] ?? (f.reason.endsWith(".") ? f.reason : `${f.reason}.`).replace(/^./, (c) => c.toUpperCase());
+}
+
+function FilterSummary({ steps, showLeftOut, setShowLeftOut }: { steps: EStep[]; showLeftOut: boolean; setShowLeftOut(v: boolean): void }) {
+  const out = steps.filter((s) => s.excluded).length;
+  const review = steps.filter((s) => !s.excluded && s.filter?.decision === "review").length;
+  if (!out && !review) return null;
+  const parts: string[] = [];
+  if (out) parts.push(`${out} ${out === 1 ? "step is" : "steps are"} left out because ${out === 1 ? "it doesn't" : "they don't"} look like part of the task, and won't be published`);
+  if (review) parts.push(`${review} ${review === 1 ? "step is" : "steps are"} flagged for a quick look`);
+  return (
+    <div className="filter-sum" role="status">
+      <CircleSlash size={16} aria-hidden />
+      <p>{parts.join(". ")}.</p>
+      {out > 0 && (
+        <button className="btn btn--ghost btn--sm" onClick={() => setShowLeftOut(!showLeftOut)} aria-pressed={!showLeftOut}>
+          {showLeftOut ? "Hide left-out steps" : "Show left-out steps"}
+        </button>
+      )}
+    </div>
   );
 }
 

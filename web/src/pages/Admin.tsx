@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { Download, RotateCcw } from "lucide-react";
 import { api, type Flags, type TeamUsage } from "../api";
 import { Empty, ErrorNote, Spinner } from "../components/bits";
 import { useToast } from "../components/Toast";
@@ -11,9 +11,10 @@ export default function Admin() {
     <div className="page admin">
       <header className="pagehead">
         <h1>Admin</h1>
-        <p>Pause recording or replay for everyone, keep an eye on AI spend, and restart stuck jobs.</p>
+        <p>Pause recording or replay for everyone, tune how drafts leave out unrelated steps, keep an eye on AI spend, and restart stuck jobs.</p>
       </header>
       <KillSwitches />
+      <FilterPanel />
       <UsagePanel />
       <DeadJobs />
     </div>
@@ -32,7 +33,8 @@ function KillSwitches() {
     try {
       const next = await api.putAdminFlags({ ...flags.data, [k]: v });
       flags.setData(next);
-      toast(SWITCHES.find((s) => s.key === k)?.[v ? "onToast" : "offToast"] ?? "Settings saved", "good");
+      const sw = SWITCHES.find((s) => s.key === k);
+      toast(sw ? sw[v ? "onToast" : "offToast"] : "Settings saved", "good");
     } catch (e) {
       toast((e as Error).message, "bad");
     } finally {
@@ -129,7 +131,186 @@ const SWITCHES = [
     onToast: "AI turned back on",
     offToast: "AI paused. Rule-based drafting is in use",
   },
+  {
+    key: "filter_enabled" as const,
+    label: "Leave out unrelated steps",
+    short: "the step filter",
+    onHelp: "Drafts grey out steps that don't look like part of the task (side trips, undone mistakes). Reviewers can put them back.",
+    offHelp: "Paused. Drafts include every recorded step.",
+    onToast: "Step filter turned back on",
+    offToast: "Step filter paused. Drafts keep every step",
+  },
+  {
+    key: "split_tasks_enabled" as const,
+    label: "Split recordings into tasks",
+    short: "task splitting",
+    onHelp: "A recording that covers two unrelated tasks becomes two drafts.",
+    offHelp: "Paused. Every recording becomes one draft.",
+    onToast: "Task splitting turned back on",
+    offToast: "Task splitting paused",
+  },
 ];
+
+const REASON_LABEL: Record<string, string> = {
+  detour: "Side trip to another app",
+  exploration: "Opened and closed",
+  mistake_undone: "Undone right after",
+  duplicate: "Repeated step",
+  idle_or_noise: "Accidental input",
+  unclear_relevance: "Unclear",
+};
+
+function FilterPanel() {
+  const [days, setDays] = useState(30);
+  const stats = useAsync(() => api.filterStats(days), [days]);
+  const flags = useAsync(() => api.getAdminFlags(), []);
+  const toast = useToast();
+  const [drop, setDrop] = useState<string | null>(null);
+  const [review, setReview] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const f = flags.data;
+  const dropV = drop ?? (f ? String(f.filter_drop_threshold) : "");
+  const reviewV = review ?? (f ? String(f.filter_review_threshold) : "");
+  const dn = Number(dropV),
+    rn = Number(reviewV);
+  const valid = dn > 0 && dn <= 1 && rn > 0 && rn <= 1 && rn <= dn;
+  const changed = !!f && (dn !== f.filter_drop_threshold || rn !== f.filter_review_threshold);
+
+  async function saveThresholds() {
+    if (!f || !valid) return;
+    setSaving(true);
+    try {
+      flags.setData(await api.putAdminFlags({ ...f, filter_drop_threshold: dn, filter_review_threshold: rn }));
+      setDrop(null);
+      setReview(null);
+      toast("Filter cut-offs saved. New recordings use them.", "good");
+    } catch (e) {
+      toast((e as Error).message, "bad");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function download() {
+    setExporting(true);
+    try {
+      const blob = await api.filterExport(90);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "filter-labels.ndjson";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      toast((e as Error).message, "bad");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const st = stats.data;
+  return (
+    <section className="panel">
+      <div className="panel__head">
+        <h2>Step filter</h2>
+        <div className="seg" role="radiogroup" aria-label="Time range">
+          {[7, 30, 90].map((d) => (
+            <button key={d} role="radio" aria-checked={days === d} className={days === d ? "is-on" : ""} onClick={() => setDays(d)}>
+              {d} days
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="panel__lede">
+        Every recorded action gets a score for how likely it is <em>not</em> part of the task. At or above the leave-out cut-off it's greyed out in the
+        draft; at or above the flag cut-off it's kept but flagged for the reviewer. Publishing tells us what reviewers actually kept.
+      </p>
+      {flags.error && <ErrorNote error={flags.error} onRetry={flags.reload} />}
+      {f && (
+        <div className="thresholds">
+          <label className="field field--inline field--sm">
+            <span>Leave out at</span>
+            <input type="number" min={0.05} max={1} step={0.05} value={dropV} onChange={(e) => setDrop(e.target.value)} aria-invalid={!valid} />
+          </label>
+          <label className="field field--inline field--sm">
+            <span>Flag at</span>
+            <input type="number" min={0.05} max={1} step={0.05} value={reviewV} onChange={(e) => setReview(e.target.value)} aria-invalid={!valid} />
+          </label>
+          <button className="btn btn--quiet btn--sm" disabled={!changed || !valid || saving} onClick={saveThresholds}>
+            {saving ? "Saving…" : "Save cut-offs"}
+          </button>
+          {!valid && <span className="muted tiny">Both between 0 and 1, and flag ≤ leave out.</span>}
+        </div>
+      )}
+      {stats.error && <ErrorNote error={stats.error} onRetry={stats.reload} />}
+      {!st && stats.loading && <Spinner />}
+      {st && (
+        <div className={stats.loading ? "is-stale" : ""}>
+          <div className="tiles">
+            <Tile label="Left out" value={num(st.decisions.drop)} sub={`${num(st.decisions.review)} flagged, of ${num(st.events)} actions`} lead />
+            <Tile label="Put back by reviewers" value={pct(st.wrongly_dropped_rate)} sub="of left-out steps that were reviewed" />
+            <Tile label="Missed" value={pct(st.missed_rate)} sub="kept steps reviewers removed" />
+            <Tile label={st.provider === "jev" ? "Jev cost" : "Filter"} value={st.provider === "jev" ? usd(st.jev.est_cost_usd) : "Rules only"} sub={st.provider === "jev" ? `${num(st.jev.recordings)} recordings · ${num(st.jev.partial_failures)} with fallbacks` : "Set FILTER_PROVIDER=jev to add the model"} />
+          </div>
+          {st.reviewed === 0 ? (
+            <p className="muted">No reviewed drafts yet. Numbers appear once people publish skills from recordings.</p>
+          ) : (
+            <div className="filter-tables">
+              <div className="tablewrap">
+                <table className="table table--compact">
+                  <caption>If the leave-out cut-off were…</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Cut-off</th>
+                      <th scope="col">Left out</th>
+                      <th scope="col" title="Of the steps it would leave out, how many reviewers also removed">Right</th>
+                      <th scope="col" title="Of the steps reviewers removed, how many it would have caught">Caught</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {st.threshold_curve.map((r) => (
+                      <tr key={r.threshold} className={f && r.threshold === f.filter_drop_threshold ? "is-current" : ""}>
+                        <td data-label="Cut-off">{r.threshold.toFixed(2)}</td>
+                        <td data-label="Left out">{num(r.flagged)}</td>
+                        <td data-label="Right">{pct(r.precision)}</td>
+                        <td data-label="Caught">{pct(r.recall)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="tablewrap">
+                <table className="table table--compact">
+                  <caption>Why steps were left out or flagged</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Reason</th>
+                      <th scope="col">Steps</th>
+                      <th scope="col">Put back</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {st.by_reason.map((r) => (
+                      <tr key={r.reason}>
+                        <td data-label="Reason">{REASON_LABEL[r.reason] ?? r.reason}</td>
+                        <td data-label="Steps">{num(r.n)}</td>
+                        <td data-label="Put back">{num(r.restored)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          <button className="btn btn--ghost btn--sm" onClick={download} disabled={exporting}>
+            <Download size={15} aria-hidden /> {exporting ? "Preparing…" : "Download labelled examples (90 days)"}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function teamLabel(t: TeamUsage): string {
   if (t.team_name) return t.team_name;
