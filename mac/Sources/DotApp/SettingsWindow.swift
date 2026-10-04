@@ -27,10 +27,13 @@ final class SettingsModel: ObservableObject {
     @Published var askIntent = true {
         didSet { settings.askIntent = askIntent }
     }
+    @Published var avatar: AvatarKind = .orb
+    @Published var hoveredAvatar: AvatarKind?
 
     let settings: SettingsStore
     let api: APIClient
     var onSignedIn: () -> Void = {}
+    var onAvatarChanged: (AvatarKind) -> Void = { _ in }
     var onServerChanged: () -> Void = {}
     private var timer: Timer?
 
@@ -48,6 +51,7 @@ final class SettingsModel: ObservableObject {
         screenshotPolicy = settings.localScreenshotPolicy
         replayMode = settings.replayMode
         askIntent = settings.askIntent
+        avatar = settings.avatar
         signedInAs = settings.token == nil ? nil : (settings.userEmail.isEmpty ? "signed in" : settings.userEmail)
         launchAtLogin = SMAppService.mainApp.status == .enabled
         refreshPermissions()
@@ -69,6 +73,27 @@ final class SettingsModel: ObservableObject {
         var p: [Permission: Bool] = [:]
         for perm in Permission.allCases { p[perm] = perm.isGranted }
         if p != permissions { permissions = p }
+    }
+
+    /// Picks a new dot. Applied right away; saved to the server so the web app matches.
+    func chooseAvatar(_ kind: AvatarKind) {
+        let previous = avatar
+        avatar = kind
+        settings.avatar = kind
+        onAvatarChanged(kind)
+        guard settings.token != nil else { return }
+        Task {
+            do {
+                _ = try await api.updateAvatar(kind)
+            } catch {
+                DispatchQueue.main.async {
+                    self.avatar = previous
+                    self.settings.avatar = previous
+                    self.onAvatarChanged(previous)
+                    self.show("Couldn't save your dot: \(error)", error: true)
+                }
+            }
+        }
     }
 
     func saveServer() {
@@ -122,6 +147,9 @@ final class SettingsModel: ObservableObject {
                     self.settings.setToken(resp.token)
                     self.settings.userEmail = resp.user.email
                     self.settings.userName = resp.user.name
+                    self.settings.avatar = resp.user.avatar
+                    self.avatar = resp.user.avatar
+                    self.onAvatarChanged(resp.user.avatar)
                     self.signedInAs = resp.user.email
                     self.busy = false
                     self.show("Signed in as \(resp.user.name).", error: false)
@@ -228,6 +256,30 @@ struct SettingsView: View {
                         }
                     }
                 }
+            }
+
+            section("Your dot") {
+                HStack(spacing: 8) {
+                    ForEach(AvatarKind.allCases, id: \.self) { k in
+                        Button(action: { m.chooseAvatar(k) }) {
+                            VStack(spacing: 4) {
+                                AvatarSwatch(kind: k, happy: m.avatar == k || m.hoveredAvatar == k, size: 40)
+                                Text(k.displayName).font(.system(size: 10, weight: m.avatar == k ? .semibold : .regular))
+                            }
+                            .padding(6)
+                            .background(RoundedRectangle(cornerRadius: 8)
+                                .fill(m.avatar == k ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.04)))
+                            .overlay(RoundedRectangle(cornerRadius: 8)
+                                .stroke(m.avatar == k ? Color.accentColor : Color.clear, lineWidth: 1.5))
+                        }
+                        .buttonStyle(.plain)
+                        .onHover { inside in m.hoveredAvatar = inside ? k : (m.hoveredAvatar == k ? nil : m.hoveredAvatar) }
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: m.hoveredAvatar)
+                        .accessibilityLabel(m.avatar == k ? k.displayName + ", selected" : k.displayName)
+                    }
+                }
+                Text("Shown as your floating dot and next to the skills you share. Same choice as on the web.")
+                    .font(.system(size: 10)).foregroundColor(.secondary)
             }
 
             section("Privacy & behaviour") {

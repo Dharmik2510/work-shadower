@@ -49,6 +49,7 @@ Sources/DotApp    AppKit/SwiftUI app
   Replayer        replay ladder: deterministic AX → LLM repair → ask the human
   ReplayHUD       step HUD + inputs form
   SearchPanel     "How do I…?" (⌥⌘Space, or ⌃⌥Space if taken)
+  AvatarArt       the five dot characters (same geometry as the web app); smiles on hover
   IntentPrompt    "What did you just do?" after each recording (Skip / Esc / 2-minute timeout continue)
   SettingsWindow  onboarding, sign-in, permissions, privacy, launch at login
 ```
@@ -96,7 +97,7 @@ Use your MDM to install Dot.app and add it as a login item.
   was available when it was written.
 - DotApp is written against macOS 13+ APIs but was syntax-checked only, not compiled against
   the macOS SDK. Run `./build.sh` on a Mac first and fix any compiler complaints.
-  Riskiest areas to check by hand: the new `IntentPrompt` panel (focus, Esc, timeout), the event tap + AX lookups in `Recorder`,
+  Riskiest areas to check by hand: the new `AvatarArt` drawing (eye/smile placement per character), the `IntentPrompt` panel (focus, Esc, timeout), the event tap + AX lookups in `Recorder`,
   ScreenCaptureKit in `Screenshotter`, and click/typing fallbacks in `Replayer`.
 
 ## Not done yet

@@ -4,6 +4,7 @@
 // click, drag, right-click menu) plus status rings for the new states.
 import AppKit
 import SwiftUI
+import DotCore
 
 enum DotActivity: Equatable {
     case idle
@@ -15,6 +16,8 @@ enum DotActivity: Equatable {
 
 final class DotModel: ObservableObject {
     @Published var openness: CGFloat = 0      // 0 = closed, 1 = open
+    @Published var smile: CGFloat = 0         // 0 = calm, 1 = big smile (on hover)
+    @Published var avatar: AvatarKind = .orb  // the character the user picked
     @Published var pupil: CGSize = .zero
     @Published var t: Double = 0
     @Published var hovering = false
@@ -75,6 +78,9 @@ final class DotModel: ObservableObject {
             if t - blinkStart < 0.14 { target = 0.05; speed = 0.45 }
         }
         openness += (target - openness) * speed
+        // Smile while the pointer is on the dot (and not while it's busy recording).
+        let smileTarget: CGFloat = (near && !recording) ? 1 : 0
+        smile += (smileTarget - smile) * 0.2
 
         // Pupils look toward the cursor (SwiftUI y is flipped)
         let reach = min(dist / 120, 1) * 2.2
@@ -143,20 +149,13 @@ struct DotView: View {
     var body: some View {
         let bob = sin(m.t * 1.8) * 2.0
         let breathe = 1 + sin(m.t * 1.2) * 0.035 * Double(1 - m.openness)
+        // a small happy hop as the smile arrives
+        let hop = -sin(Double(m.smile) * .pi) * 3
 
         ZStack {
             ring
-            Circle()
-                .fill(RadialGradient(
-                    colors: [Color(red: 0.55, green: 0.62, blue: 1.0),
-                             Color(red: 0.24, green: 0.2, blue: 0.72)],
-                    center: UnitPoint(x: 0.35, y: 0.3),
-                    startRadius: 1, endRadius: 26))
-                .frame(width: 36, height: 36)
-                .shadow(color: glow.opacity(0.55), radius: 8)
-
-            HStack(spacing: 7) { eye; eye }
-                .offset(y: -1)
+            DotCharacter(kind: m.avatar, openness: m.openness, smile: m.smile, pupil: m.pupil, glow: glow, size: 44)
+                .offset(y: CGFloat(hop))
         }
         .scaleEffect(breathe)
         .offset(y: bob)
@@ -174,17 +173,17 @@ struct DotView: View {
         if m.recording {
             Circle()
                 .stroke(Color.red, lineWidth: 2)
-                .frame(width: 43, height: 43)
+                .frame(width: 52, height: 52)
                 .opacity(0.55 + 0.45 * sin(m.t * 4))
         } else if m.replaying {
             Circle()
                 .stroke(DotView.green, lineWidth: 2)
-                .frame(width: 43, height: 43)
+                .frame(width: 52, height: 52)
                 .opacity(0.6 + 0.3 * sin(m.t * 2))
         } else if m.errorMessage != nil {
             Circle()
                 .stroke(DotView.amber, lineWidth: 2)
-                .frame(width: 43, height: 43)
+                .frame(width: 52, height: 52)
                 .opacity(0.85)
         } else if m.uploading {
             // Subtle progress arc; spins when progress is unknown.
@@ -192,7 +191,7 @@ struct DotView: View {
             Circle()
                 .trim(from: 0, to: CGFloat(max(0.08, min(1, p ?? 0.25))))
                 .stroke(Color(red: 0.55, green: 0.62, blue: 1.0), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                .frame(width: 43, height: 43)
+                .frame(width: 52, height: 52)
                 .rotationEffect(.degrees(p == nil ? (m.t * 240).truncatingRemainder(dividingBy: 360) - 90 : -90))
                 .opacity(0.6)
         }
@@ -229,19 +228,6 @@ struct DotView: View {
         Divider()
         Button("Settings…") { m.onSettings() }
         Button("Quit") { NSApp.terminate(nil) }
-    }
-
-    private var eye: some View {
-        ZStack {
-            Color.white
-            Circle()
-                .fill(Color(white: 0.1))
-                .frame(width: 4, height: 4)
-                .offset(m.pupil)
-                .opacity(Double(m.openness))
-        }
-        .frame(width: 9, height: 10)
-        .mask(Eye(openness: m.openness))
     }
 
     private var drag: some Gesture {

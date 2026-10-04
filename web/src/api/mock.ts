@@ -2,6 +2,7 @@
 // Mirrors ApiClient exactly so screens can be built and verified without a backend.
 import { ApiError, type ApiClient } from "./client";
 import type {
+  AvatarKind,
   CreateRunRequest,
   CreateSkillRequest,
   DevLoginRequest,
@@ -43,9 +44,9 @@ const T = {
 } satisfies Record<string, TeamRef>;
 
 const P = {
-  priya: { id: "u-priya", name: "Priya Raman", email: "priya.raman@example.com" },
-  marc: { id: "u-marc", name: "Marc Tremblay", email: "marc.tremblay@example.com" },
-  aisha: { id: "u-aisha", name: "Aisha Okafor", email: "aisha.okafor@example.com" },
+  priya: { id: "u-priya", name: "Priya Raman", email: "priya.raman@example.com", avatar: "sprout" },
+  marc: { id: "u-marc", name: "Marc Tremblay", email: "marc.tremblay@example.com", avatar: "ember" },
+  aisha: { id: "u-aisha", name: "Aisha Okafor", email: "aisha.okafor@example.com", avatar: "nimbus" },
 } satisfies Record<string, UserRef>;
 
 let me: User = {
@@ -54,8 +55,9 @@ let me: User = {
   name: "Dharmik",
   role: "admin",
   teams: [T.ubi, T.claims],
+  avatar: "orb",
 };
-const meRef = (): UserRef => ({ id: me.id, name: me.name, email: me.email });
+const meRef = (): UserRef => ({ id: me.id, name: me.name, email: me.email, avatar: me.avatar });
 
 // ---------- screenshots (generated SVG "app windows") ----------
 interface Shot {
@@ -338,8 +340,8 @@ const R = { rental: "9a7d3b10-0001-4000-8000-0000000000a1" };
 seedSkill(S.fnol, fnol, { owner: P.priya, team: T.claims, versions: 3, updated: 60 * 26, health: { runs: 24, success_rate: 0.92, last_run_at: ago(95) } });
 seedSkill(S.endo, endorsement, { owner: P.marc, team: T.pl, versions: 2, updated: 60 * 24 * 6, health: { runs: 11, success_rate: 0.73, last_run_at: ago(60 * 30) } });
 seedSkill(S.broker, brokerReset, { owner: P.aisha, team: T.broker, versions: 5, updated: 60 * 24 * 2, health: { runs: 63, success_rate: 0.98, last_run_at: ago(22) } });
-seedSkill(S.ubi, ubiTrip, { owner: { id: "u-me", name: "Dharmik", email: "dharmik@example.com" }, team: T.ubi, versions: 1, updated: 60 * 5, visibility: "team", health: { runs: 0, success_rate: null, last_run_at: null } });
-seedSkill(S.rental, rentalDraft, { owner: { id: "u-me", name: "Dharmik", email: "dharmik@example.com" }, team: T.claims, versions: 0, updated: 14, draft: true, visibility: "private", source: R.rental, health: { runs: 0, success_rate: null, last_run_at: null } });
+seedSkill(S.ubi, ubiTrip, { owner: { id: "u-me", name: "Dharmik", email: "dharmik@example.com", avatar: "orb" }, team: T.ubi, versions: 1, updated: 60 * 5, visibility: "team", health: { runs: 0, success_rate: null, last_run_at: null } });
+seedSkill(S.rental, rentalDraft, { owner: { id: "u-me", name: "Dharmik", email: "dharmik@example.com", avatar: "orb" }, team: T.claims, versions: 0, updated: 14, draft: true, visibility: "private", source: R.rental, health: { runs: 0, success_rate: null, last_run_at: null } });
 seedSkill(S.report, lossRatio, { owner: P.priya, team: T.claims, versions: 1, updated: 60 * 24 * 21, visibility: "team", status: "archived", health: { runs: 4, success_rate: 0.5, last_run_at: ago(60 * 24 * 22) } });
 
 // ---------- recordings ----------
@@ -482,6 +484,14 @@ export class MockApiClient implements ApiClient {
   async me() {
     await wait(60);
     requireAuth();
+    return clone(me);
+  }
+  async updateMe(body: { avatar: AvatarKind }) {
+    await wait(200);
+    requireAuth();
+    me = { ...me, avatar: body.avatar };
+    // the signed-in user's own skills show the new character too
+    for (const r of skills.values()) if (r.skill.owner.id === me.id) r.skill.owner = { ...r.skill.owner, avatar: body.avatar };
     return clone(me);
   }
   async teams() {

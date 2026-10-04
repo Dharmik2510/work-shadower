@@ -88,6 +88,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         dot.window = dotPanel
         dot.recordingEnabled = config.recordingEnabled
         dot.replayEnabled = config.replayEnabled
+        dot.avatar = settings.avatar
         dot.start()
     }
 
@@ -141,6 +142,9 @@ final class AppController: NSObject, NSApplicationDelegate {
             }
         }
 
+        settingsWindow.model.onAvatarChanged = { [weak self] kind in
+            self?.dot.avatar = kind
+        }
         settingsWindow.model.onSignedIn = { [weak self] in
             self?.dot.errorMessage = nil
             self?.uploader?.signedIn()
@@ -161,6 +165,14 @@ final class AppController: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async { self.apply(config: c) }
             } catch {
                 Log.net.info("config fetch failed; keeping cached flags")
+            }
+            // The avatar can be changed on the web too; pick it up with the config refresh.
+            if let me = try? await api.me() {
+                DispatchQueue.main.async {
+                    self.settings.avatar = me.avatar
+                    self.dot.avatar = me.avatar
+                    self.settingsWindow.model.avatar = me.avatar
+                }
             }
         }
     }

@@ -198,6 +198,12 @@ public final class APIClient {
         return try decode(User.self, try await request("GET", "/me"))
     }
 
+    /// Changes which dot character represents the signed-in user (shared with the web app).
+    public func updateAvatar(_ kind: AvatarKind) async throws -> User {
+        let body = try JSONSerialization.data(withJSONObject: ["avatar": kind.rawValue])
+        return try decode(User.self, try await request("PATCH", "/me", body: body))
+    }
+
     public func config() async throws -> ServerConfig {
         return try decode(ServerConfig.self, try await request("GET", "/config"))
     }

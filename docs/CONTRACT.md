@@ -126,7 +126,8 @@ Search/list returns a lighter `SkillSummary`: `id,title,goal,owner,team,visibili
 
 Auth & config
 - `POST /auth/dev-login` `{email,name,team?}` → `{token,user}` (only when AUTH_MODE=dev)
-- `GET /me` → User
+- `GET /me` → User (includes `avatar: "orb|sprout|ember|nimbus|pixel"`, default `orb`)
+- `PATCH /me` `{avatar}` → User. The dot character shown on the person's Mac and next to their skills. `owner` refs in skill responses carry `avatar` too.
 - `GET /teams` → `{items:[{id,name}]}`
 - `GET /config/public` → `{auth_mode, oidc:{issuer,client_id}|null}`
 - `GET /config` → flags `{recording_enabled, replay_enabled, llm_enabled, max_recording_minutes, screenshot_policy:"key_moments|none", filter_enabled, filter_drop_threshold, filter_review_threshold, split_tasks_enabled}`

@@ -93,7 +93,7 @@ def can_edit(user: CurrentUser, row: dict) -> bool:
 _BASE_SELECT = """
 SELECT s.id, s.owner_id, s.team_id, s.visibility, s.status, s.current_version, s.draft,
        s.source_recording_id, s.created_at, s.updated_at, s.run_count, s.run_success_count, s.last_run_at,
-       o.name AS owner_name, o.email AS owner_email, t.name AS team_name,
+       o.name AS owner_name, o.email AS owner_email, o.avatar AS owner_avatar, t.name AS team_name,
        pv.content AS published
 FROM skills s
 JOIN users o ON o.id = s.owner_id
@@ -129,7 +129,8 @@ def _health(row: dict) -> dict:
 
 
 def _owner(row: dict) -> dict:
-    return {"id": str(row["owner_id"]), "name": row["owner_name"], "email": row["owner_email"]}
+    return {"id": str(row["owner_id"]), "name": row["owner_name"], "email": row["owner_email"],
+            "avatar": row.get("owner_avatar") or "orb"}
 
 
 def _team(row: dict) -> dict | None:

@@ -715,13 +715,23 @@ select:disabled {
   z-index: 30;
   background: color-mix(in srgb, var(--paper) 88%, transparent);
   backdrop-filter: saturate(1.4) blur(10px);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid transparent;
+  transition:
+    border-color 0.25s,
+    box-shadow 0.25s,
+    background-color 0.25s;
+}
+[data-scrolled] .topbar {
+  border-bottom-color: var(--line);
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  box-shadow: 0 8px 24px -18px rgba(23, 26, 44, 0.45);
 }
 .topbar__inner {
   max-width: calc(var(--page-max) + var(--gutter) * 2);
   margin: 0 auto;
   padding: 0 var(--gutter);
-  height: 60px;
+  height: 64px;
+  transition: height 0.25s ease;
   display: flex;
   align-items: center;
   gap: 32px;
@@ -743,6 +753,7 @@ select:disabled {
   height: 100%;
 }
 .nav a {
+  position: relative;
   display: inline-flex;
   align-items: center;
   padding: 0 12px;
@@ -750,16 +761,32 @@ select:disabled {
   text-decoration: none;
   font-weight: 600;
   font-size: var(--t-s);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
   white-space: nowrap;
+  transition: color 0.15s;
+}
+.nav a::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--indigo);
+  transform: scaleX(0);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .nav a:hover {
   color: var(--ink);
 }
+.nav a:hover::after {
+  transform: scaleX(0.35);
+}
 .nav a.active {
   color: var(--ink);
-  border-bottom-color: var(--indigo);
+}
+.nav a.active::after {
+  transform: scaleX(1);
 }
 .topbar__right {
   margin-left: auto;
@@ -776,15 +803,28 @@ select:disabled {
   border-radius: var(--r-pill);
 }
 .avatar {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: 0;
-  background: var(--ink);
-  color: var(--paper);
-  font-size: var(--t-xs);
-  font-weight: 700;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
   cursor: pointer;
+}
+.avatar:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.usermenu__me {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.usermenu__me > div {
+  min-width: 0;
 }
 .usermenu {
   position: relative;
@@ -2195,9 +2235,14 @@ button.shot:hover {
     gap: 10px;
     padding: 10px 10px 10px 12px;
   }
-  .ask__box .dot {
-    width: 40px !important;
-    height: 40px !important;
+  .ask__box .dot,
+  .ask__box .av,
+  .ask__box .av svg {
+    width: 42px !important;
+    height: 42px !important;
+  }
+  .ask__hello {
+    font-size: var(--t-xl);
   }
   .ask__box .dot svg {
     width: 40px;
@@ -2493,5 +2538,529 @@ button.shot:hover {
   }
   .table.table--compact td[data-label]::before {
     content: none;
+  }
+}
+
+/* ---------- avatars (the five dot characters) ----------
+   Rest: sleepy eyes, small calm mouth.
+   Awake (prop, or hover): eyes open.
+   Happy (prop, or hover): wide smile, cheeks, a little hop, and each character's own motion.
+   Hover counts on the avatar itself and on any link / button / .av-host around it. */
+.av {
+  display: inline-block;
+  flex: none;
+  line-height: 0;
+  vertical-align: middle;
+}
+.av svg {
+  overflow: visible;
+  filter: drop-shadow(0 3px 6px rgba(23, 26, 44, 0.18));
+}
+.av__body,
+.av__open,
+.av__closed,
+.av__smile,
+.av__mouth-rest,
+.av__cheeks,
+.av__leaf,
+.av__flame,
+.av__puffs,
+.av__bulb,
+.av__shine {
+  transform-box: fill-box;
+}
+.av__body {
+  transform-origin: 50% 100%;
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.av__open {
+  transform-origin: 50% 50%;
+  transform: scaleY(0.08);
+  opacity: 0;
+  transition:
+    transform 0.2s cubic-bezier(0.3, 1.4, 0.5, 1),
+    opacity 0.12s;
+}
+.av__closed,
+.av__mouth-rest {
+  transition: opacity 0.14s;
+}
+.av__pupils {
+  transition: transform 0.25s ease-out;
+}
+.av__smile {
+  transform-origin: 50% 0%;
+  transform: scale(0.35, 0);
+  opacity: 0;
+  transition:
+    transform 0.32s cubic-bezier(0.34, 1.7, 0.64, 1),
+    opacity 0.12s;
+}
+.av__cheeks {
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.av__leaf--l {
+  transform-origin: 100% 60%;
+}
+.av__leaf--r {
+  transform-origin: 0% 80%;
+}
+.av__flame {
+  transform-origin: 50% 100%;
+  animation: av-flicker 2.4s ease-in-out infinite;
+}
+.av__bulb {
+  transition: fill 0.2s;
+}
+.av__shine {
+  opacity: 0;
+}
+
+/* awake: eyes open */
+:is(.av--awake, .av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__open {
+  transform: scaleY(1);
+  opacity: 1;
+}
+:is(.av--awake, .av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__closed {
+  opacity: 0;
+}
+.av--awake:not(.av--happy) .av__open {
+  animation: blink 5.5s 1.2s infinite;
+}
+
+/* happy: smile */
+:is(.av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__smile {
+  transform: scale(1, 1);
+  opacity: 1;
+}
+:is(.av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__mouth-rest {
+  opacity: 0;
+}
+:is(.av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__cheeks {
+  opacity: 0.7;
+}
+:is(.av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__body {
+  animation: av-hop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+:is(.av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__leaf--l {
+  animation: av-wiggle-l 0.9s ease-in-out infinite;
+}
+:is(.av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__leaf--r {
+  animation: av-wiggle-r 0.9s ease-in-out infinite;
+}
+:is(.av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__flame {
+  animation-duration: 0.6s;
+}
+:is(.av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__puffs {
+  animation: av-drift 1.6s ease-in-out infinite;
+}
+:is(.av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__bulb {
+  fill: #fff6b0;
+  animation: av-glow 0.9s ease-in-out infinite;
+}
+:is(.av--happy, .av:hover, :is(a, button, label, .av-host):is(:hover, :focus-visible) .av) .av__shine {
+  animation: av-shine 1.1s ease-out;
+}
+
+/* a quiet float for the one avatar that is "alive" on a page */
+.av--idle .av__body {
+  animation: av-float 4.2s ease-in-out infinite;
+}
+
+@keyframes av-hop {
+  0% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(0) scale(1.08, 0.9); }
+  60% { transform: translateY(-9%) scale(0.96, 1.06); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes av-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5%); }
+}
+@keyframes av-wiggle-l {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-14deg); }
+}
+@keyframes av-wiggle-r {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(14deg); }
+}
+@keyframes av-flicker {
+  0%, 100% { transform: scale(1, 1); opacity: 0.55; }
+  50% { transform: scale(0.9, 1.12); opacity: 0.75; }
+}
+@keyframes av-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-6%, -10%); }
+}
+@keyframes av-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@keyframes av-shine {
+  from { transform: translate(-60%, -60%); opacity: 1; }
+  to { transform: translate(60%, 60%); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av__body,
+  .av__open,
+  .av__closed,
+  .av__smile,
+  .av__pupils,
+  .av__cheeks {
+    transition-duration: 0.01s !important;
+  }
+  .av *,
+  .av__body {
+    animation: none !important;
+  }
+}
+
+/* ---------- scroll chrome ---------- */
+[data-scrolled] .topbar__inner {
+  height: 54px;
+}
+[data-scrolled] .brand .dot {
+  transform: scale(0.88);
+}
+.brand .dot {
+  transition: transform 0.25s ease;
+}
+/* reading progress along the top edge */
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 40;
+  pointer-events: none;
+  transform-origin: 0 50%;
+  transform: scaleX(var(--scroll, 0));
+  background: linear-gradient(90deg, var(--orb-hi), var(--indigo) 60%, #ff8fb8);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+[data-scrolled] .progress {
+  opacity: 1;
+}
+@supports (animation-timeline: scroll()) {
+  .progress {
+    transform: scaleX(0);
+    animation: progress-grow linear both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes progress-grow {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* rise into place on first view (only when JS turned it on) */
+.reveal-on .reveal:not(.is-in) {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.reveal-on .reveal.is-in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.55s ease var(--reveal-delay, 0ms),
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms);
+}
+
+/* list rows lift slightly under the pointer */
+.skill,
+.rec {
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s,
+    border-color 0.25s;
+}
+.reveal-on .skill.is-in:hover,
+.reveal-on .rec.is-in:hover,
+.skill:hover,
+.rec:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px -20px rgba(23, 26, 44, 0.5);
+}
+
+/* ---------- avatar picker ---------- */
+.picker {
+  max-width: 560px;
+  position: relative;
+  justify-items: center;
+  text-align: center;
+  padding: 28px 28px 22px;
+  overflow: hidden;
+  animation: picker-in 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.modal:has(.picker) {
+  animation: fade-in 0.25s ease;
+}
+.picker__x {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.picker__stage {
+  position: relative;
+  width: 200px;
+  height: 172px;
+  display: grid;
+  place-items: center;
+}
+.picker__halo {
+  position: absolute;
+  inset: 8px 18px 0;
+  border-radius: 50%;
+  filter: blur(26px);
+  opacity: 0.55;
+  transition: background 0.5s;
+  background: radial-gradient(circle, #8f89ff, transparent 68%);
+}
+.picker__halo[data-kind="sprout"] {
+  background: radial-gradient(circle, #5fd393, transparent 68%);
+}
+.picker__halo[data-kind="ember"] {
+  background: radial-gradient(circle, #ff9a4d, transparent 68%);
+}
+.picker__halo[data-kind="nimbus"] {
+  background: radial-gradient(circle, #9ec4ff, transparent 68%);
+}
+.picker__halo[data-kind="pixel"] {
+  background: radial-gradient(circle, #b18cff, transparent 68%);
+}
+.picker__hero {
+  position: relative;
+  animation: picker-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.picker__title {
+  font-size: var(--t-xl);
+  letter-spacing: -0.02em;
+  margin: 2px 0 0;
+}
+.picker__lede {
+  margin: 0;
+  max-width: 40ch;
+  font-size: var(--t-s);
+}
+.picker__row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+}
+.picker__opt {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 4px 10px;
+  border-radius: var(--r-m);
+  border: 1.5px solid var(--line);
+  background: var(--surface-2);
+  cursor: pointer;
+  color: var(--ink-2);
+  transition:
+    border-color 0.2s,
+    background-color 0.2s,
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.picker__opt:hover {
+  transform: translateY(-3px);
+  border-color: var(--line-strong);
+}
+.picker__opt:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.picker__opt.is-on {
+  border-color: var(--indigo);
+  background: var(--indigo-soft);
+  color: var(--ink);
+}
+.picker__name {
+  font-weight: 650;
+  font-size: var(--t-s);
+}
+.picker__blurb {
+  margin: 10px 0 0;
+  min-height: 2.8em;
+  max-width: 46ch;
+  font-size: var(--t-s);
+}
+.picker__err {
+  color: var(--bad);
+  font-size: var(--t-s);
+}
+.picker .modal__actions {
+  width: 100%;
+}
+@keyframes picker-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+@keyframes picker-pop {
+  0% {
+    transform: scale(0.6) rotate(-8deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.06) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (max-width: 520px) {
+  .picker {
+    padding: 22px 16px 16px;
+  }
+  .picker__row {
+    gap: 4px;
+  }
+  .picker__opt {
+    padding: 8px 2px;
+  }
+  .picker__opt .av,
+  .picker__opt .av svg {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .picker__name {
+    font-size: var(--t-xs);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on .reveal:not(.is-in) {
+    opacity: 1;
+    transform: none;
+  }
+  .progress,
+  .picker,
+  .picker__hero,
+  .modal:has(.picker) {
+    animation: none;
+  }
+  .skill:hover,
+  .rec:hover,
+  .picker__opt:hover {
+    transform: none;
+  }
+  .topbar__inner,
+  .nav a::after {
+    transition: none;
+  }
+}
+
+/* ---------- library opening ----------
+   One orchestrated moment: the greeting line, then the search box with your dot (which wakes
+   and smiles), then the suggestions. As you scroll down, your dot sinks back into the box. */
+.ask__hello {
+  font-size: var(--t-2xl);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  margin: 0 0 18px;
+  max-width: 24ch;
+  text-wrap: balance;
+}
+.ask__hello,
+.ask__box,
+.ask__label {
+  animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.ask__label {
+  animation-delay: 0.05s;
+}
+.ask__box {
+  animation-delay: 0.12s;
+}
+.ask__dot {
+  animation: dot-arrive 0.8s 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+@keyframes dot-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(-26px) scale(0.5) rotate(-18deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(3px) scale(1.08) rotate(4deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+@supports (animation-timeline: scroll()) {
+  .ask__dot .av__body {
+    animation: dot-sink linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 260px;
+  }
+  .ask__dot:hover .av__body,
+  .ask__box:hover .ask__dot .av__body {
+    animation: av-hop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+@keyframes dot-sink {
+  to {
+    transform: translateY(6%) scale(0.86) rotate(-6deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask__hello,
+  .ask__box,
+  .ask__label,
+  .ask__dot,
+  .ask__dot .av__body {
+    animation: none !important;
+  }
+}
+
+/* ---------- sign-in: the five dots ---------- */
+.login__crew {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.login__crew .av {
+  animation: crew-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--i, 0) * 90ms + 100ms);
+}
+@keyframes crew-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.6);
+  }
+}
+.owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .login__crew .av {
+    animation: none;
   }
 }

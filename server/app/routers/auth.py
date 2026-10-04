@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request
 from ..auth import Conn, User, add_membership, ensure_team, issue_token, load_user, upsert_user
 from ..errors import ApiError
 from ..flags import effective_config
-from ..models import DevLogin
+from ..models import DevLogin, MePatch
 from ..skills import valid_uuid
 
 router = APIRouter()
@@ -36,6 +36,13 @@ def dev_login(body: DevLogin, request: Request, conn: Conn):
 @router.get("/me")
 def me(user: User):
     return user.to_json()
+
+
+@router.patch("/me")
+def patch_me(body: MePatch, user: User, conn: Conn):
+    """Personal settings. Today: which dot character represents you."""
+    conn.execute("UPDATE users SET avatar = %s, updated_at = now() WHERE id = %s", (body.avatar, user.id))
+    return load_user(conn, user.id).to_json()
 
 
 @router.get("/teams")
