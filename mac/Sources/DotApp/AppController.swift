@@ -28,10 +28,15 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     static let dotSize: CGFloat = 64
     static let configRefresh: TimeInterval = 10 * 60
+    /// How often the dot checks whether you picked a different character on the web.
+    static let avatarRefresh: TimeInterval = 60
+    private var avatarTimer: Timer?
+    private var lastAvatarCheck = Date.distantPast
 
     // MARK: Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        retireOtherCopies()
         AX.configureTimeouts()
         config = settings.cachedConfig ?? .defaults
 
@@ -49,6 +54,9 @@ final class AppController: NSObject, NSApplicationDelegate {
         let t = Timer(timeInterval: Self.configRefresh, repeats: true) { [weak self] _ in self?.refreshConfig() }
         RunLoop.main.add(t, forMode: .common)
         configTimer = t
+        let a = Timer(timeInterval: Self.avatarRefresh, repeats: true) { [weak self] _ in self?.refreshAvatar() }
+        RunLoop.main.add(a, forMode: .common)
+        avatarTimer = a
 
         launched = true
         let urls = pendingURLs
@@ -69,6 +77,25 @@ final class AppController: NSObject, NSApplicationDelegate {
             return
         }
         urls.forEach(handle(url:))
+    }
+
+    /// Only one dot at a time. A freshly built or newly opened copy replaces any copy that is
+    /// still running, including the original prototype (`mac/legacy`, bundle id com.dharmik.dot).
+    private func retireOtherCopies() {
+        let me = ProcessInfo.processInfo.processIdentifier
+        let ids: Set<String> = [Bundle.main.bundleIdentifier ?? "com.workshadower.dot", "com.workshadower.dot", "com.dharmik.dot"]
+        let others = NSWorkspace.shared.runningApplications.filter {
+            $0.processIdentifier != me && ids.contains($0.bundleIdentifier ?? "")
+        }
+        for app in others {
+            Log.app.info("quitting an older copy of the dot (pid \(app.processIdentifier, privacy: .public))")
+            app.terminate()
+        }
+        guard !others.isEmpty else { return }
+        // Give them a moment to quit cleanly; force the ones that don't.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            for app in others where !app.isTerminated { app.forceTerminate() }
+        }
     }
 
     private func setUpDot() {
@@ -114,6 +141,12 @@ final class AppController: NSObject, NSApplicationDelegate {
         dot.onOpenLibrary = { [weak self] in self?.openWeb(path: "/") }
         dot.onRetryUploads = { [weak self] in self?.uploader?.retryNow() }
         dot.onSettings = { [weak self] in self?.settingsWindow.show() }
+        dot.onChooseAvatar = { [weak self] kind in self?.settingsWindow.model.chooseAvatar(kind) }
+        dot.onHoverStart = { [weak self] in
+            // Picked a new character on the web a moment ago? Notice it as soon as you point at the dot.
+            guard let self = self, Date().timeIntervalSince(self.lastAvatarCheck) > 10 else { return }
+            self.refreshAvatar()
+        }
         dot.onMoved = { [weak self] origin in self?.settings.dotOrigin = origin }
 
         recorder.onAutoStop = { [weak self] reason in
@@ -166,13 +199,21 @@ final class AppController: NSObject, NSApplicationDelegate {
             } catch {
                 Log.net.info("config fetch failed; keeping cached flags")
             }
-            // The avatar can be changed on the web too; pick it up with the config refresh.
-            if let me = try? await api.me() {
-                DispatchQueue.main.async {
-                    self.settings.avatar = me.avatar
-                    self.dot.avatar = me.avatar
-                    self.settingsWindow.model.avatar = me.avatar
-                }
+        }
+        refreshAvatar()
+    }
+
+    /// The avatar can be changed on the web too. Cheap GET /me; keeps the cached choice on failure.
+    private func refreshAvatar() {
+        guard api.baseURL != nil, settings.token != nil else { return }
+        lastAvatarCheck = Date()
+        Task {
+            guard let me = try? await api.me() else { return }
+            DispatchQueue.main.async {
+                guard me.avatar != self.dot.avatar else { return }
+                self.settings.avatar = me.avatar
+                self.dot.avatar = me.avatar
+                self.settingsWindow.model.avatar = me.avatar
             }
         }
     }

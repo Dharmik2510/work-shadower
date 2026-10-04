@@ -1,7 +1,8 @@
 # Dot — the Mac client
 
 The floating dot in the top-right corner. Eyes closed when idle, open on hover.
-Click it to record a workflow; right-click for search, library, uploads, settings.
+Click it to record a workflow; right-click for search, library, uploads, **Your dot** (pick your character), settings.
+A character picked on the web shows up on the dot within a minute, or as soon as you point at it.
 
 ## Build
 
