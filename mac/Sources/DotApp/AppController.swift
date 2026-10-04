@@ -84,11 +84,17 @@ final class AppController: NSObject, NSApplicationDelegate {
     private func retireOtherCopies() {
         let me = ProcessInfo.processInfo.processIdentifier
         let ids: Set<String> = [Bundle.main.bundleIdentifier ?? "com.workshadower.dot", "com.workshadower.dot", "com.dharmik.dot"]
-        let others = NSWorkspace.shared.runningApplications.filter {
-            $0.processIdentifier != me && ids.contains($0.bundleIdentifier ?? "")
+        // Also match by name: a prototype run as a bare binary (swiftc main.swift && ./Dot), or built
+        // with another bundle id, has no matching bundle id but is still called "Dot".
+        let others = NSWorkspace.shared.runningApplications.filter { app in
+            guard app.processIdentifier != me else { return false }
+            if let id = app.bundleIdentifier, ids.contains(id) { return true }
+            let exe = app.executableURL?.lastPathComponent ?? ""
+            return exe == "Dot" || app.localizedName == "Dot"
         }
         for app in others {
-            Log.app.info("quitting an older copy of the dot (pid \(app.processIdentifier, privacy: .public))")
+            let id = app.bundleIdentifier ?? "-"
+            Log.app.info("quitting an older copy of the dot (pid \(app.processIdentifier, privacy: .public), \(id, privacy: .public))")
             app.terminate()
         }
         guard !others.isEmpty else { return }
