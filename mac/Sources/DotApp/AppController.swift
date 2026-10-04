@@ -36,6 +36,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     // MARK: Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        retireOtherCopies()
         AX.configureTimeouts()
         config = settings.cachedConfig ?? .defaults
 
@@ -76,6 +77,25 @@ final class AppController: NSObject, NSApplicationDelegate {
             return
         }
         urls.forEach(handle(url:))
+    }
+
+    /// Only one dot at a time. A freshly built or newly opened copy replaces any copy that is
+    /// still running, including the original prototype (`mac/legacy`, bundle id com.dharmik.dot).
+    private func retireOtherCopies() {
+        let me = ProcessInfo.processInfo.processIdentifier
+        let ids: Set<String> = [Bundle.main.bundleIdentifier ?? "com.workshadower.dot", "com.workshadower.dot", "com.dharmik.dot"]
+        let others = NSWorkspace.shared.runningApplications.filter {
+            $0.processIdentifier != me && ids.contains($0.bundleIdentifier ?? "")
+        }
+        for app in others {
+            Log.app.info("quitting an older copy of the dot (pid \(app.processIdentifier, privacy: .public))")
+            app.terminate()
+        }
+        guard !others.isEmpty else { return }
+        // Give them a moment to quit cleanly; force the ones that don't.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            for app in others where !app.isTerminated { app.forceTerminate() }
+        }
     }
 
     private func setUpDot() {
