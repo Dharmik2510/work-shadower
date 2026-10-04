@@ -38,6 +38,8 @@ final class DotModel: ObservableObject {
     var onOpenLibrary: () -> Void = {}
     var onRetryUploads: () -> Void = {}
     var onSettings: () -> Void = {}
+    var onChooseAvatar: (AvatarKind) -> Void = { _ in }
+    var onHoverStart: () -> Void = {}
     var onMoved: (CGPoint) -> Void = { _ in }
 
     weak var window: NSWindow?
@@ -64,7 +66,10 @@ final class DotModel: ObservableObject {
         let dist = hypot(dx, dy)
 
         let near = dist < 28
-        if near != hovering { hovering = near }
+        if near != hovering {
+            hovering = near
+            if near { onHoverStart() }
+        }
         let awake = near || recording || replaying
         var target: CGFloat = awake ? 1 : 0
         var speed: CGFloat = 0.18
@@ -226,6 +231,17 @@ struct DotView: View {
         }
         .disabled(m.pendingUploads == 0)
         Divider()
+        Menu("Your dot") {
+            ForEach(AvatarKind.allCases, id: \.self) { k in
+                Button(action: { m.onChooseAvatar(k) }) {
+                    if m.avatar == k {
+                        Label(k.displayName, systemImage: "checkmark")
+                    } else {
+                        Text(k.displayName)
+                    }
+                }
+            }
+        }
         Button("Settings…") { m.onSettings() }
         Button("Quit") { NSApp.terminate(nil) }
     }
