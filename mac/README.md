@@ -1,7 +1,21 @@
 # Dot — the Mac client
 
-The floating dot in the top-right corner. Eyes closed when idle, open on hover.
-Click it to record a workflow; right-click for search, library, uploads, **Your dot** (pick your character), settings.
+Work Shadower lives in the **notch** (Settings → Where it lives → Floating dot brings back the old dot).
+
+| State | When | What you see |
+|---|---|---|
+| Idle | nothing happening | exactly the hardware notch; nothing added to the menu bar |
+| Peek | pointer rests on the notch (120 ms) | your dot wakes and smiles; Record · How do I…? · Library |
+| Open | click the notch, or ⌥⌘Space | big dot + Record on the left, "How do I…?" search on the right (↵ learn, ⌘↵ do it, esc close) |
+| Live activity | recording / running a skill / uploading / needs attention | small "ears" either side of the notch: timer, step 3/9, progress ring, amber warning |
+| Intent | right after you stop recording | "What did you just do?" in the notch; ↵ saves, esc skips, saves on its own after 2 min |
+| Toast | upload finished, discarded, admin switched something off | one line for a few seconds, then quiet again |
+
+Behaviour rules: hover intent (120 ms in, 350 ms out) so passing the menu bar doesn't trigger it;
+clicks outside the black shape pass straight through; any click elsewhere folds it away; never steals
+focus from your app (non-activating panel); on displays without a notch it's a slim tab at the top
+centre, hidden while a full-screen app is in front; Reduce Motion swaps springs for a short fade.
+Right-click the notch for everything else (recordings, **Your dot**, floating dot, settings, quit).
 A character picked on the web shows up on the dot within a minute, or as soon as you point at it.
 
 ## Build
@@ -50,6 +64,10 @@ Sources/DotApp    AppKit/SwiftUI app
   Replayer        replay ladder: deterministic AX → LLM repair → ask the human
   ReplayHUD       step HUD + inputs form
   SearchPanel     "How do I…?" (⌥⌘Space, or ⌃⌥Space if taken)
+  NotchController the notch panel: states, hover intent, click-through, outside clicks, esc/↑/↓, toasts, intent
+  NotchView       what each notch state shows (ears, peek, open + search, intent, toast, right-click menu)
+  NotchGeometry   notch size per display (safeAreaInsets / auxiliaryTopLeftArea), sizes per state
+  NotchShape      the animatable notch silhouette (concave top flares, rounded bottom)
   AvatarArt       the five dot characters (same geometry as the web app); smiles on hover
   IntentPrompt    "What did you just do?" after each recording (Skip / Esc / 2-minute timeout continue)
   SettingsWindow  onboarding, sign-in, permissions, privacy, launch at login
@@ -98,7 +116,8 @@ Use your MDM to install Dot.app and add it as a login item.
   was available when it was written.
 - DotApp is written against macOS 13+ APIs but was syntax-checked only, not compiled against
   the macOS SDK. Run `./build.sh` on a Mac first and fix any compiler complaints.
-  Riskiest areas to check by hand: the new `AvatarArt` drawing (eye/smile placement per character), the `IntentPrompt` panel (focus, Esc, timeout), the event tap + AX lookups in `Recorder`,
+  Riskiest areas to check by hand: the new notch (position on notched vs. external displays, hover
+  timing, typing in the search/intent fields without the app activating), the `AvatarArt` drawing (eye/smile placement per character), the `IntentPrompt` panel (focus, Esc, timeout), the event tap + AX lookups in `Recorder`,
   ScreenCaptureKit in `Screenshotter`, and click/typing fallbacks in `Replayer`.
 
 ## Not done yet

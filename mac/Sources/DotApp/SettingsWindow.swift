@@ -28,6 +28,14 @@ final class SettingsModel: ObservableObject {
         didSet { settings.askIntent = askIntent }
     }
     @Published var avatar: AvatarKind = .orb
+    @Published var presentation: DotPresentation = .notch {
+        didSet {
+            guard presentation != settings.presentation else { return }
+            settings.presentation = presentation
+            onPresentationChanged(presentation)
+        }
+    }
+    var onPresentationChanged: (DotPresentation) -> Void = { _ in }
     @Published var hoveredAvatar: AvatarKind?
 
     let settings: SettingsStore
@@ -52,6 +60,7 @@ final class SettingsModel: ObservableObject {
         replayMode = settings.replayMode
         askIntent = settings.askIntent
         avatar = settings.avatar
+        presentation = settings.presentation
         signedInAs = settings.token == nil ? nil : (settings.userEmail.isEmpty ? "signed in" : settings.userEmail)
         launchAtLogin = SMAppService.mainApp.status == .enabled
         refreshPermissions()
@@ -256,6 +265,20 @@ struct SettingsView: View {
                         }
                     }
                 }
+            }
+
+            section("Where it lives") {
+                Picker("", selection: $m.presentation) {
+                    Text("In the notch").tag(DotPresentation.notch)
+                    Text("Floating dot").tag(DotPresentation.floating)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Text(m.presentation == .notch
+                     ? "Point at the notch to peek, click it (or press ⌥⌘Space) to open. Macs without a notch get a slim tab at the top of the screen."
+                     : "A small dot you can drag anywhere. Right-click it for everything else.")
+                    .font(.system(size: 10)).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             section("Your dot") {

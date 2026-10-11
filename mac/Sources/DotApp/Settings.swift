@@ -54,6 +54,10 @@ enum Keychain {
     }
 }
 
+enum DotPresentation: String, CaseIterable {
+    case notch, floating
+}
+
 /// Persistent app settings (UserDefaults) + token (Keychain, keyed by server host).
 final class SettingsStore {
     private let d = UserDefaults.standard
@@ -71,6 +75,7 @@ final class SettingsStore {
         static let replayMode = "replayMode"
         static let askIntent = "askIntentAfterRecording"
         static let avatar = "avatar"
+        static let presentation = "presentation"
     }
 
     var serverURLString: String {
@@ -108,6 +113,12 @@ final class SettingsStore {
     var replayMode: RunMode {
         get { return RunMode(rawValue: d.string(forKey: K.replayMode) ?? "") ?? .guided }
         set { d.set(newValue.rawValue, forKey: K.replayMode) }
+    }
+
+    /// Where Work Shadower lives on screen: in the notch (default) or as a floating dot.
+    var presentation: DotPresentation {
+        get { return DotPresentation(rawValue: d.string(forKey: K.presentation) ?? "") ?? .notch }
+        set { d.set(newValue.rawValue, forKey: K.presentation) }
     }
 
     /// The dot character (cached so the dot looks right before the server answers).

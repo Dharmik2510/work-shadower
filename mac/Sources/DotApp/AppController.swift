@@ -19,6 +19,9 @@ final class AppController: NSObject, NSApplicationDelegate {
     private lazy var replayer = Replayer(api: api, settings: settings)
     private let search = SearchPanelController()
     private let intentPrompt = IntentPromptController()
+    private let notch = NotchController()
+    private var usesNotch: Bool { settings.presentation == .notch }
+    private var lastPending = 0
     private lazy var settingsWindow = SettingsWindowController(model: SettingsModel(settings: settings, api: api))
 
     private var config: ServerConfig = .defaults
@@ -123,6 +126,36 @@ final class AppController: NSObject, NSApplicationDelegate {
         dot.replayEnabled = config.replayEnabled
         dot.avatar = settings.avatar
         dot.start()
+        notch.attach(dot: dot, search: search.model, hud: replayer.hudModel)
+        applyPresentation()
+    }
+
+    /// Notch (default) or floating dot. Switchable live from Settings or the right-click menu.
+    private func applyPresentation() {
+        if usesNotch {
+            dotPanel.orderOut(nil)
+            dot.hoverProvider = { [weak self] in self?.notch.isHovering ?? false }
+            dot.centerProvider = { [weak self] in self?.notch.avatarCenter ?? .zero }
+            notch.model.firstName = firstName
+            notch.show()
+            // Say hello once, so people know where the dot went.
+            if !UserDefaults.standard.bool(forKey: "notchIntroShown") {
+                UserDefaults.standard.set(true, forKey: "notchIntroShown")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                    self?.notch.toast("I live in the notch now", detail: "Point here to peek, click to open",
+                                      tone: .info, duration: 6)
+                }
+            }
+        } else {
+            notch.hide()
+            dot.hoverProvider = nil
+            dot.centerProvider = nil
+            dotPanel.orderFrontRegardless()
+        }
+    }
+
+    private var firstName: String {
+        settings.userName.split(separator: " ").first.map(String.init) ?? ""
     }
 
     private func setUpQueue() {
@@ -155,6 +188,26 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
         dot.onMoved = { [weak self] origin in self?.settings.dotOrigin = origin }
 
+        let n = notch.model
+        n.onRecordToggle = { [weak self] in self?.toggleRecording() }
+        n.onDiscardRecording = { [weak self] in self?.discardRecording() }
+        n.onLibrary = { [weak self] in
+            self?.notch.collapse()
+            self?.openWeb(path: "/")
+        }
+        n.onRecordings = { [weak self] in
+            self?.notch.collapse()
+            self?.openWeb(path: "/recordings")
+        }
+        n.onSettings = { [weak self] in
+            self?.notch.collapse()
+            self?.settingsWindow.show()
+        }
+        n.onChooseAvatar = { [weak self] kind in self?.settingsWindow.model.chooseAvatar(kind) }
+        n.onUseFloatingDot = { [weak self] in self?.settingsWindow.model.presentation = .floating }
+        n.onShowReplayHUD = { [weak self] in self?.replayer.showHUD() }
+        settingsWindow.model.onPresentationChanged = { [weak self] _ in self?.applyPresentation() }
+
         recorder.onAutoStop = { [weak self] reason in
             Log.recorder.info("auto stop: \(reason, privacy: .public)")
             self?.stopRecording()
@@ -163,14 +216,19 @@ final class AppController: NSObject, NSApplicationDelegate {
         search.model.api = api
         search.model.onLearn = { [weak self] s in
             self?.search.hide()
+            self?.notch.collapse()
             self?.openWeb(path: "/skills/\(s.id)")
         }
         search.model.onRun = { [weak self] s in
             self?.search.hide()
+            self?.notch.collapse()
             self?.startReplay(skillID: s.id, version: s.currentVersion)
         }
 
-        replayer.dotFrame = { [weak self] in self?.dotPanel.frame }
+        replayer.dotFrame = { [weak self] in
+            guard let self = self else { return nil }
+            return self.usesNotch ? self.notch.shapeFrame : self.dotPanel.frame
+        }
         replayer.llmEnabled = { [weak self] in self?.config.llmEnabled ?? false }
         replayer.onStateChange = { [weak self] running in
             guard let self = self else { return }
@@ -186,6 +244,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
         settingsWindow.model.onSignedIn = { [weak self] in
             self?.dot.errorMessage = nil
+            if let self = self { self.notch.model.firstName = self.firstName }
             self?.uploader?.signedIn()
             self?.refreshConfig()
         }
@@ -267,6 +326,7 @@ final class AppController: NSObject, NSApplicationDelegate {
             dot.errorMessage = nil
             dot.activity = .recording
             dot.recordingStartedAt = Date()
+            notch.collapse()   // get out of the way; the timer lives on the notch's ear
         } else {
             flash("Couldn't start recording. Check Accessibility and Input Monitoring in Settings.")
             settingsWindow.show()
@@ -280,6 +340,15 @@ final class AppController: NSObject, NSApplicationDelegate {
         recorder.stop { [weak self] result in
             DispatchQueue.main.async { self?.enqueue(result) }
         }
+    }
+
+    /// Throws the current recording away (nothing is saved or uploaded).
+    private func discardRecording() {
+        guard recorder.isRecording else { return }
+        recorder.cancel()
+        dot.activity = .idle
+        dot.recordingStartedAt = nil
+        if usesNotch { notch.toast("Recording discarded", detail: "Nothing was saved", tone: .info, duration: 2.4) }
     }
 
     /// How long a just-saved recording waits for the "What did you just do?" answer before it uploads
@@ -318,8 +387,14 @@ final class AppController: NSObject, NSApplicationDelegate {
         for e in r.events {
             if let n = e.app?.name, !apps.contains(n) { apps.append(n) }
         }
-        intentPrompt.ask(near: dotPanel.frame, apps: apps, timeout: Self.intentHold - 30) { [weak self] intent in
-            self?.attachIntent(intent, to: key)
+        if usesNotch {
+            notch.askIntent(steps: r.events.count, apps: apps, timeout: Self.intentHold - 30) { [weak self] intent in
+                self?.attachIntent(intent, to: key)
+            }
+        } else {
+            intentPrompt.ask(near: dotPanel.frame, apps: apps, timeout: Self.intentHold - 30) { [weak self] intent in
+                self?.attachIntent(intent, to: key)
+            }
         }
     }
 
@@ -341,6 +416,13 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     private func apply(uploadStatus s: UploaderStatus) {
+        // A recording just finished uploading: say so once, then get quiet again.
+        if usesNotch && s.pending < lastPending && !s.needsSignIn && s.lastError == nil {
+            notch.toast("Uploaded", detail: "Draft ready in about a minute", tone: .good, action: "Open", duration: 4) { [weak self] in
+                self?.openWeb(path: "/recordings")
+            }
+        }
+        lastPending = s.pending
         dot.pendingUploads = s.pending
         dot.uploading = s.isUploading
         dot.uploadProgress = s.progress
@@ -355,7 +437,11 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     private func openSearch() {
         search.model.replayEnabled = config.replayEnabled
-        search.toggle(near: dotPanel.frame)
+        if usesNotch {
+            notch.toggleOpen()
+        } else {
+            search.toggle(near: dotPanel.frame)
+        }
     }
 
     private func startReplay(skillID: String, version: Int?) {
@@ -410,6 +496,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     private func flash(_ message: String) {
         dot.errorMessage = message
         NSSound.beep()
+        if usesNotch { notch.toast(message, tone: .attention, duration: 5) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
             if self?.dot.errorMessage == message { self?.dot.errorMessage = nil }
         }
