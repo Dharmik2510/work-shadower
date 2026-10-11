@@ -29,6 +29,12 @@ final class Replayer {
 
     private(set) var isRunning = false
 
+    /// Live replay state, mirrored in the notch.
+    var hudModel: ReplayHUDModel { hud.model }
+
+    /// Brings the step panel back (e.g. "Show" in the notch when a step is waiting for you).
+    func showHUD() { hud.show(near: dotFrame()) }
+
     static let repairThreshold = 0.7
     static let verifyTimeout: TimeInterval = 5
 

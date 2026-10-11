@@ -56,16 +56,26 @@ final class DotModel: ObservableObject {
         self.timer = timer
     }
 
+    /// Notch mode: who decides "the pointer is on me" and where "me" is (the floating dot uses its window).
+    var hoverProvider: (() -> Bool)?
+    var centerProvider: (() -> CGPoint)?
+
     private func tick() {
         t += 1.0 / 60.0
-        guard let w = window else { return }
+        let center: CGPoint
+        if let c = centerProvider?() {
+            center = c
+        } else if let w = window {
+            center = CGPoint(x: w.frame.midX, y: w.frame.midY)
+        } else {
+            return
+        }
 
-        let center = CGPoint(x: w.frame.midX, y: w.frame.midY)
         let mouse = NSEvent.mouseLocation
         let dx = mouse.x - center.x, dy = mouse.y - center.y
         let dist = hypot(dx, dy)
 
-        let near = dist < 28
+        let near = hoverProvider?() ?? (dist < 28)
         if near != hovering {
             hovering = near
             if near { onHoverStart() }
